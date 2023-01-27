@@ -1,4 +1,4 @@
-name: nda2
+name: isi_analysis
 channels:
 - conda-forge
 - defaults
