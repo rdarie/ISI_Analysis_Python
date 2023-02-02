@@ -18,57 +18,45 @@ RepoList=(\
 "scikit-lego" \
 "statsmodels"
 )
-
-module load git/2.10.2
-module load gcc/8.3
-module load leveldb lapack openblas llvm hdf5 protobuf ffmpeg fftw scons
-module load anaconda/2022.05
-module load mpi
-# module load opengl
-module load qt/5.10.1
-module load zlib/1.2.11
-module load vtk/8.1.0
-module unload python
-
-. /gpfs/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
-conda activate
-
+source ./load_ccv_modules.sh
 echo "Please wait for conda to install the environment..."
-conda env create -f environment.yml
+conda env create -f environment.yml -v -v
 
 echo "Please check if installation was successful"
 read FILLER
 chmod +x $HOME/anaconda/isi_analysis/bin/*
 conda activate isi_analysis
 cd ..
-export PYTHONPATH="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages"
+
+export PYTHONPATH="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages"
 #
-pip install pyqt5==5.10.1 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --upgrade
+pip install pyqt5==5.10.1 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --upgrade
 # jupyter requires the qt console, installing after the fact to ensure the proper version
 conda install jupyter --freeze-installed
 conda install pyqtgraph=0.10.0 --freeze-installed
-pip install vg==1.6.1 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps
-# pip install vtk==8.1.0 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps --dry-run
-# conda install mayavi --freeze-installed
-# conda install -c conda-forge slycot --freeze-installed --dry-run
-# conda install -c conda-forge control --freeze-installed --dry-run
-conda install -c conda-forge pyerfa --freeze-installed --dry-run
-conda install -c conda-forge astropy --freeze-installed --dry-run
-# pip install importlib-resources --target="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps
+pip install vg==1.6.1 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --no-deps
+conda install -c conda-forge pyerfa --freeze-installed
+conda install -c conda-forge astropy --freeze-installed
+# pip install importlib-resources --target="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --no-deps
 
-pip install git+git://github.com/G-Node/nixpy@v1.5.0b3 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps
-pip install git+git://github.com/hector-sab/ttictoc@v0.4.1 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps
-pip install git+git://github.com/raphaelvallat/pingouin@v0.5.0 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps
-pip install git+git://github.com/melizalab/libtfr --target="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps
+pip install git+git://github.com/G-Node/nixpy@v1.5.0b3 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --no-deps
+pip install git+git://github.com/hector-sab/ttictoc@v0.4.1 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --no-deps
+pip install git+git://github.com/raphaelvallat/pingouin@v0.5.0 --target="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --no-deps
+pip install git+git://github.com/melizalab/libtfr --target="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --no-deps
 #
+# WIP
+# MATLABROOT="/gpfs/runtime/opt/matlab/R2021a"
+# cd "$MATLABROOT/extern/engines/python"
+
+
 for i in ${RepoList[*]}; do
     echo $GitRepoRoot$i".git"
     git clone $GitRepoRoot$i".git"
     cd $i
     # git checkout tags/ndav0.3
-    python setup.py develop --install-dir="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps
+    python setup.py develop --install-dir="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --no-deps
     cd ..
 done
 #
 cd Data-Analysis
-python setup.py develop --install-dir="/users/rdarie/anaconda/isi_analysis/lib/python3.10/site-packages" --no-deps
+python setup.py develop --install-dir="/users/rdarie/anaconda/isi_analysis/lib/python3.9/site-packages" --no-deps

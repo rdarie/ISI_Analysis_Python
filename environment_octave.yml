@@ -1,0 +1,6 @@
+name: octave_w_ezc3d
+channels:
+- conda-forge/label/cf202003
+dependencies:
+- octave
+- ezc3d=*=*octave*
