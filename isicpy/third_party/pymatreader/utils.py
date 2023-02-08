@@ -40,6 +40,8 @@ except ImportError:  # scipy < 1.8
 if sys.version_info <= (2, 7):
     chr = unichr  # noqa This is needed for python 2 and 3 compatibility
 
+import pdb
+
 standard_matlab_classes = ('char', 'cell', 'float', 'double', 'int',
                            'int8', 'int16', 'int32',
                            'int64', 'uint', 'uint8', 'uint16', 'logical',
@@ -91,7 +93,8 @@ def _hdf5todict(hdf5_object, variable_names=None, ignore_fields=None):
     raise TypeError('Unknown type in hdf5 file')
 
 
-def _handle_hdf5_group(hdf5_object, variable_names=None, ignore_fields=None):
+def _handle_hdf5_group(
+        hdf5_object, variable_names=None, ignore_fields=None):
     all_keys = set(hdf5_object.keys())
     if ignore_fields:
         all_keys = all_keys - set(ignore_fields)

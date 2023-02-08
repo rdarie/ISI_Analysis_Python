@@ -83,20 +83,19 @@ if standardize_emg:
         scaler = pickle.load(handle)
 
 all_stim_info = {}
-all_aligned_emg = {}
-for block_idx in [2, 3]:
+all_aligned_lfp = {}
+for block_idx in [2]:
     file_path = data_path / f"Block{block_idx:0>4d}_Synced_Session_Data.mat"
     data_dict = load_synced_mat(
         file_path,
         load_stim_info=True,
-        load_vicon=True, vicon_as_df=True,
-        load_ripple=True, ripple_variable_names=['NEV'], ripple_as_df=True
+        load_ripple=True, ripple_variable_names=['NEV', 'NF7'], ripple_as_df=True
         )
 
-    if data_dict['vicon'] is not None:
-        this_emg = data_dict['vicon']['EMG'].iloc[:, :12].copy()
-        this_emg.columns = emg_montages['lower']
-        this_emg.columns.name = 'label'
+    if data_dict['ripple'] is not None:
+        this_lfp = data_dict['ripple']['NF7']
+        # this_lfp.columns = emg_montages['lower']
+        this_lfp.columns.name = 'label'
 
     if data_dict['stim_info'] is not None:
         # data_dict['stim_info'].loc[:, 'elecCath'] = data_dict['stim_info']['elecCath'].apply(lambda x: str(x))
@@ -112,7 +111,7 @@ for block_idx in [2, 3]:
         all_stim_info[block_idx].set_index('timestamp_usec', inplace=True)
 
         aligned_dfs = {}
-        analog_time_vector = np.asarray(this_emg.index)
+        analog_time_vector = np.asarray(this_lfp.index)
         nominal_dt = np.int64(np.median(np.diff(analog_time_vector)))
         epoch_t = np.arange(left_sweep, right_sweep, nominal_dt)
         nominal_num_samp = epoch_t.shape[0]
@@ -133,38 +132,40 @@ for block_idx in [2, 3]:
                     print(f'this_mask.sum() = {this_mask.sum()}')
             if standardize_emg:
                 aligned_dfs[timestamp] = pd.DataFrame(
-                    scaler.transform(this_emg.loc[this_mask, :]),
-                    index=epoch_t, columns=this_emg.columns)
+                    scaler.transform(this_lfp.loc[this_mask, :]),
+                    index=epoch_t, columns=this_lfp.columns)
             else:
                 aligned_dfs[timestamp] = pd.DataFrame(
-                    this_emg.loc[this_mask, :].to_numpy(),
-                    index=epoch_t, columns=this_emg.columns)
+                    this_lfp.loc[this_mask, :].to_numpy(),
+                    index=epoch_t, columns=this_lfp.columns)
 
-        all_aligned_emg[block_idx] = pd.concat(aligned_dfs, names=['timestamp_usec', 'time_usec'])
+        all_aligned_lfp[block_idx] = pd.concat(aligned_dfs, names=['timestamp_usec', 'time_usec'])
 
 stim_info_df = pd.concat(all_stim_info, names=['block', 'timestamp_usec'])
 stim_info_df.loc[:, 'elecConfig_str'] = stim_info_df.apply(lambda x: f'-{x["elecCath"]}+{x["elecAno"]}', axis='columns')
-emg_df = pd.concat(all_aligned_emg, names=['block', 'timestamp_usec', 'time_usec'])
+lfp_df = pd.concat(all_aligned_lfp, names=['block', 'timestamp_usec', 'time_usec'])
 
-del aligned_dfs, all_aligned_emg, all_stim_info
+del aligned_dfs, all_aligned_lfp, all_stim_info
 gc.collect()
 
 
 g = sns.displot(data=stim_info_df, x='delta_timestamp_usec', rug=True, element='step', fill=False)
 plt.show()
 
-plot_emg = emg_df.stack().to_frame(name='signal').reset_index()
-plot_emg.loc[:, 'time_sec'] = plot_emg['time_usec'] * 1e-6
-block_timestamp_index = pd.MultiIndex.from_frame(plot_emg.loc[:, ['block', 'timestamp_usec']])
+plot_lfp = lfp_df.stack().to_frame(name='signal').reset_index()
+plot_lfp.loc[:, 'time_sec'] = plot_lfp['time_usec'] * 1e-6
+block_timestamp_index = pd.MultiIndex.from_frame(plot_lfp.loc[:, ['block', 'timestamp_usec']])
 for meta_key in ['elecConfig_str', 'amp', 'freq']:
-    plot_emg.loc[:, meta_key] = block_timestamp_index.map(stim_info_df[meta_key]).to_numpy()
+    plot_lfp.loc[:, meta_key] = block_timestamp_index.map(stim_info_df[meta_key]).to_numpy()
 
-downsampled_mask = plot_emg['time_usec'].isin(plot_emg['time_usec'].unique()[::1])
-channels_mask = plot_emg['label'].isin(['RLVL', 'RMH',])
-plot_mask = downsampled_mask & channels_mask
+downsampled_mask = plot_lfp['time_usec'].isin(plot_lfp['time_usec'].unique()[::1])
+channels_mask = plot_lfp['label'].isin(['hifreq 1', 'hifreq 2',])
+elec_mask = plot_lfp['elecConfig_str'].isin(['-(26,)+(18,)', '-(27,)+(26,)', '-(27,)+(18,)'])
+
+plot_mask = downsampled_mask & channels_mask & elec_mask
 
 g = sns.relplot(
-    data=plot_emg.loc[plot_mask, :],
+    data=plot_lfp.loc[plot_mask, :],
     col='label', row='elecConfig_str',
     x='time_sec', y='signal',
     # hue='amp', style='freq',

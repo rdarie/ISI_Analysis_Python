@@ -28,6 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from .pymatreader import read_mat
+from .utils import _hdf5todict as hdf5todict
 from ._version import __version__
 
-__all__ = ['read_mat', '__version__']
+__all__ = ['read_mat', 'hdf5todict', '__version__']

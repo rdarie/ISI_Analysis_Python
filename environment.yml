@@ -3,7 +3,7 @@ channels:
 - conda-forge
 - defaults
 dependencies:
-- python==3.9.12
+- python==3.8*
 - pip
 - line_profiler
 - tzlocal
@@ -42,4 +42,4 @@ dependencies:
 - tabulate
 - numdifftools
 - sklearn-pandas
-- ipykernel
+- seaborn

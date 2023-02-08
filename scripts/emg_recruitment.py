@@ -73,10 +73,10 @@ for rcK, rcV in mplRCParams.items():
 
 data_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/3_Preprocessed_Data/Day11_PM")
 
-left_sweep = int(-0.01 * 1e6)
-right_sweep = int(0.1 * 1e6)
+left_sweep = int(-0.05 * 1e6)
+right_sweep = int(0.3 * 1e6)
 verbose = 0
-standardize_emg = False
+standardize_emg = True
 if standardize_emg:
     emg_scaler_path = data_path / "pickles" / "emg_scaler.p"
     with open(emg_scaler_path, 'rb') as handle:
@@ -161,16 +161,17 @@ for meta_key in ['elecConfig_str', 'amp', 'freq']:
 
 downsampled_mask = plot_emg['time_usec'].isin(plot_emg['time_usec'].unique()[::1])
 channels_mask = plot_emg['label'].isin(['RLVL', 'RMH',])
-plot_mask = downsampled_mask & channels_mask
+plot_mask = downsampled_mask
 
-g = sns.relplot(
-    data=plot_emg.loc[plot_mask, :],
-    col='label', row='elecConfig_str',
-    x='time_sec', y='signal',
-    # hue='amp', style='freq',
-    kind='line',
-    units='timestamp_usec', estimator=None,
-    errorbar='sd',
-    )
-
-plt.show()
+for elecConfig in stim_info_df['elecConfig_str'].unique():
+    elec_mask = plot_emg['elecConfig_str'] == elecConfig
+    g = sns.relplot(
+        data=plot_emg.loc[plot_mask & elec_mask, :],
+        col='label', col_wrap=5,
+        x='time_sec', y='signal',
+        hue='amp', style='freq',
+        kind='line',
+        # units='timestamp_usec', estimator=None,
+        errorbar='sd',
+        )
+    plt.show()
