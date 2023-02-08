@@ -4,7 +4,7 @@ source ./load_ccv_modules.sh
 
 module unload chrome/73.0
 
-GitRepoRoot="git://github.com/rdarie/"
+GitRepoRoot="https://github.com/rdarie/"
 RepoList=(\
 "ephyviewer" \
 "elephant" \
@@ -24,9 +24,9 @@ cd ..
 
 export PYTHONPATH="/users/rdarie/anaconda/isi_analysis/lib/python3.8/site-packages"
 
-# pip install git+git://github.com/hector-sab/ttictoc@v0.4.1 --target=$PYTHONPATH --no-deps
-pip install git+git://github.com/raphaelvallat/pingouin@v0.5.3 --target=$PYTHONPATH --no-deps
-pip install git+git://github.com/melizalab/libtfr --target=$PYTHONPATH --no-deps
+# pip install git+https://github.com/hector-sab/ttictoc@v0.4.1 --target=$PYTHONPATH --no-deps
+pip install git+https://github.com/raphaelvallat/pingouin@v0.5.3 --target=$PYTHONPATH --no-deps
+pip install git+https://github.com/melizalab/libtfr --target=$PYTHONPATH --no-deps
 
 # WIP
 # MATLABROOT="/gpfs/runtime/opt/matlab/R2021a"

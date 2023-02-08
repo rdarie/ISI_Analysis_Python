@@ -34,12 +34,34 @@ def sanitize_elec_config(elec_cfg):
         pdb.set_trace()
 
 
-def sanitize_stim_info(si):
+def sanitize_stim_info(si, nev_spikes):
     for col_name in ['elecCath', 'elecAno']:
         si.loc[:, col_name] = si[col_name].apply(sanitize_elec_config)
     for col_name in ['amp', 'freq', 'pulseWidth', 'res', 'nipTime']:
         si.loc[:, col_name] = si[col_name].astype(np.int64)
     si.loc[:, 'timestamp_usec'] = np.asarray(np.round(si['time'], 6) * 1e6, dtype=np.int64)
+
+    # align to stim onset
+    si = si.loc[si['amp'] != 0, :].reset_index(drop=True)
+    #
+    all_spike_times = nev_spikes['time_usec']
+    is_first_spike = (all_spike_times.diff() > 2e5)  # more than 200 msec / 5 Hz
+    is_first_spike.iloc[0] = True  # first spike in recording is first in train
+    rank_in_train = is_first_spike.astype(int)
+    for row_idx in nev_spikes.index:
+        if not is_first_spike.loc[row_idx]:
+            if row_idx > 0:
+                rank_in_train.loc[row_idx] = rank_in_train.loc[row_idx - 1] + 1
+    nev_spikes.loc['rank_in_train'] = rank_in_train
+    first_spike_times = all_spike_times.loc[is_first_spike]
+    closest_nev_times, _ = closestSeries(
+        referenceIdx=si['timestamp_usec'],
+        sampleFrom=first_spike_times, strictly='neither')
+    #
+    si.loc[:, 'original_timestamp_usec'] = si['timestamp_usec'].copy()
+    si.loc[:, 'timestamp_usec'] = closest_nev_times.to_numpy()
+    si.loc[:, 'delta_timestamp_usec'] = si['original_timestamp_usec'].to_numpy() - closest_nev_times.to_numpy()
+    si.set_index('timestamp_usec', inplace=True)
     return si
 
 def sanitize_all_logs(al):
@@ -170,7 +192,15 @@ def load_synced_mat(
             ret_dict['stim_info'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['StimInfo'],
                 ignore_fields=ignore_fields, variable_names=stim_info_variable_names)
-            ret_dict['stim_info'] = sanitize_stim_info(loadtablefrommat(ret_dict['stim_info']))
+            just_nev = hdf5todict(
+                hdf5_file['Synced_Session_Data']['Ripple_Data'],
+                ignore_fields=ignore_fields, variable_names=['NEV'])
+            just_nev['NEV']['Data']['Spikes']['time_usec'] = np.asarray(
+                np.round(just_nev['NEV']['Data']['Spikes']['time_seconds'], 6) * 1e6, dtype=np.int64)
+            waveform_unit = just_nev['NEV']['Data']['Spikes'].pop('WaveformUnit')
+            waveform_df = pd.DataFrame(just_nev['NEV']['Data']['Spikes'].pop('Waveform'))
+            nev_spikes = pd.DataFrame(just_nev['NEV']['Data']['Spikes'])
+            ret_dict['stim_info'] = sanitize_stim_info(loadtablefrommat(ret_dict['stim_info']), nev_spikes)
         if load_all_logs:
             ret_dict['all_logs'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['AllLogs'],
@@ -180,7 +210,6 @@ def load_synced_mat(
             ret_dict['meta'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['Meta'],
                 ignore_fields=ignore_fields, variable_names=meta_variable_names)
-            pdb.set_trace()
     return ret_dict
 
 

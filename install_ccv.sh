@@ -2,7 +2,7 @@
 
 source ./load_ccv_modules.sh
 
-GitRepoRoot="git://github.com/rdarie/"
+GitRepoRoot="https://github.com/rdarie/"
 RepoList=(\
 "python-neo" \ # pip install neo[nixio,neomatlabio]
 "ephyviewer" \
@@ -39,9 +39,9 @@ pip install pyqt5==5.10.1 --target=$PYTHONPATH --upgrade
 pip install neo[nixio,neomatlabio] --target=$PYTHONPATH --no-deps
 pip install vg==1.6.1 --target=$PYTHONPATH --no-deps
 
-# pip install git+git://github.com/hector-sab/ttictoc@v0.4.1 --target=$PYTHONPATH --no-deps
-pip install git+git://github.com/raphaelvallat/pingouin@v0.5.3 --target=$PYTHONPATH --no-deps
-pip install git+git://github.com/melizalab/libtfr --target=$PYTHONPATH --no-deps
+# pip install git+https://github.com/hector-sab/ttictoc@v0.4.1 --target=$PYTHONPATH --no-deps
+pip install git+https://github.com/raphaelvallat/pingouin@v0.5.3 --target=$PYTHONPATH --no-deps
+pip install git+https://github.com/melizalab/libtfr --target=$PYTHONPATH --no-deps
 
 # WIP
 # MATLABROOT="/gpfs/runtime/opt/matlab/R2021a"
