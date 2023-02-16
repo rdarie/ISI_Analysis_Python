@@ -28,3 +28,18 @@ emg_montages = {
         'R TA'
     ]
 }
+
+muscle_names = {
+    'LVL': 'vastus',
+    'LMH': 'hamstring',
+    'LTA': 'tib. ant.',
+    'LMG': 'gastrocnemius',
+    'LSOL': 'soleus',
+    'L Forearm': 'forearm',
+    'RLVL': 'vastus',
+    'RMH': 'hamstring',
+    'RTA': 'tib. ant.',
+    'RMG': 'gastrocnemius',
+    'RSOL': 'soleus',
+    'R Forearm': 'forearm'
+}

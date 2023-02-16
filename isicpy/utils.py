@@ -3,11 +3,14 @@ import numpy as np
 from isicpy.third_party.pymatreader import hdf5todict
 import h5py
 import pdb
+from scipy import signal
+import matplotlib.pyplot as plt
+from copy import deepcopy
 
 # function to load table variable from MAT-file
 # based on https://stackoverflow.com/questions/25853840/load-matlab-tables-in-python-using-scipy-io-loadmat
-
-def loadtablefrommat(mat):
+def loadtablefrommat(
+        mat):
     """
     read a struct-ified table variable (and column names) from a MAT-file
     and return pandas.DataFrame object.
@@ -24,17 +27,20 @@ def loadtablefrommat(mat):
         }
     return pd.DataFrame(table_dict)
 
-def sanitize_elec_config(elec_cfg):
+
+def sanitize_elec_config(
+        elec_cfg):
     if isinstance(elec_cfg, np.float64) or isinstance(elec_cfg, np.float32) or isinstance(elec_cfg, float):
         return (int(elec_cfg), )
     elif isinstance(elec_cfg, np.ndarray):
-        print((int(el) for el in elec_cfg))
-        return (int(el) for el in elec_cfg)
+        # print(tuple(int(el) for el in elec_cfg))
+        return tuple(int(el) for el in elec_cfg)
     else:
         pdb.set_trace()
 
 
-def sanitize_stim_info(si, nev_spikes):
+def sanitize_stim_info(
+        si, nev_spikes, split_trains=True):
     for col_name in ['elecCath', 'elecAno']:
         si.loc[:, col_name] = si[col_name].apply(sanitize_elec_config)
     for col_name in ['amp', 'freq', 'pulseWidth', 'res', 'nipTime']:
@@ -43,8 +49,9 @@ def sanitize_stim_info(si, nev_spikes):
 
     # align to stim onset
     si = si.loc[si['amp'] != 0, :].reset_index(drop=True)
+    si.loc[:, 'original_timestamp_usec'] = si['timestamp_usec'].copy()
     #
-    all_spike_times = nev_spikes['time_usec']
+    all_spike_times = nev_spikes['time_usec'].copy()
     is_first_spike = (all_spike_times.diff() > 2e5)  # more than 200 msec / 5 Hz
     is_first_spike.iloc[0] = True  # first spike in recording is first in train
     rank_in_train = is_first_spike.astype(int)
@@ -54,23 +61,35 @@ def sanitize_stim_info(si, nev_spikes):
                 rank_in_train.loc[row_idx] = rank_in_train.loc[row_idx - 1] + 1
     nev_spikes.loc['rank_in_train'] = rank_in_train
     first_spike_times = all_spike_times.loc[is_first_spike]
-    closest_nev_times, _ = closestSeries(
-        referenceIdx=si['timestamp_usec'],
-        sampleFrom=first_spike_times, strictly='neither')
+    if split_trains:
+        closest_nev_times_train, _ = closestSeries(
+            referenceIdx=si.loc[si['isContinuous'].astype(bool), 'timestamp_usec'],
+            sampleFrom=first_spike_times, strictly='neither')
+        closest_nev_times_continuous, _ = closestSeries(
+            referenceIdx=si.loc[~si['isContinuous'].astype(bool), 'timestamp_usec'],
+            sampleFrom=all_spike_times, strictly='neither')
+        si.loc[si['isContinuous'].astype(bool), 'timestamp_usec'] = closest_nev_times_train.to_numpy()
+        si.loc[~si['isContinuous'].astype(bool), 'timestamp_usec'] = closest_nev_times_continuous.to_numpy()
+    else:
+        closest_nev_times, _ = closestSeries(
+            referenceIdx=si['timestamp_usec'],
+            sampleFrom=all_spike_times, strictly='neither')
+        si.loc[:, 'timestamp_usec'] = closest_nev_times.to_numpy()
     #
-    si.loc[:, 'original_timestamp_usec'] = si['timestamp_usec'].copy()
-    si.loc[:, 'timestamp_usec'] = closest_nev_times.to_numpy()
-    si.loc[:, 'delta_timestamp_usec'] = si['original_timestamp_usec'].to_numpy() - closest_nev_times.to_numpy()
+    si.loc[:, 'delta_timestamp_usec'] = si['original_timestamp_usec'] - si['timestamp_usec']
     si.set_index('timestamp_usec', inplace=True)
     return si
 
+
 def sanitize_all_logs(al):
     pdb.set_trace()
+
+
 def load_synced_mat(
         file_path=None,
         load_vicon=False, vicon_variable_names=None, vicon_as_df=False,
         load_ripple=False, ripple_variable_names=None, ripple_as_df=False,
-        load_stim_info=False, stim_info_variable_names=None, stim_info_as_df=False,
+        load_stim_info=False, stim_info_variable_names=None, stim_info_as_df=False, split_trains=True,
         load_all_logs=False, all_logs_variable_names=None, all_logs_as_df=False,
         load_meta=False, meta_variable_names=None, meta_as_df=False,
         ):
@@ -187,6 +206,8 @@ def load_synced_mat(
                     ret_dict['ripple']['NEV_ElectrodesInfo'] = electrodes_info
                     waveform_unit = ret_dict['ripple']['NEV']['Data']['Spikes'].pop('WaveformUnit')
                     waveform_df = pd.DataFrame(ret_dict['ripple']['NEV']['Data']['Spikes'].pop('Waveform'))
+                    elec_ids = ret_dict['ripple']['NEV']['Data']['Spikes']['Electrode']
+                    elec_ids[elec_ids > 5120] = elec_ids[elec_ids > 5120] - 5120
                     ret_dict['ripple']['NEV'] = pd.DataFrame(ret_dict['ripple']['NEV']['Data']['Spikes'])
         if load_stim_info:
             ret_dict['stim_info'] = hdf5todict(
@@ -200,7 +221,7 @@ def load_synced_mat(
             waveform_unit = just_nev['NEV']['Data']['Spikes'].pop('WaveformUnit')
             waveform_df = pd.DataFrame(just_nev['NEV']['Data']['Spikes'].pop('Waveform'))
             nev_spikes = pd.DataFrame(just_nev['NEV']['Data']['Spikes'])
-            ret_dict['stim_info'] = sanitize_stim_info(loadtablefrommat(ret_dict['stim_info']), nev_spikes)
+            ret_dict['stim_info'] = sanitize_stim_info(loadtablefrommat(ret_dict['stim_info']), nev_spikes, split_trains=split_trains)
         if load_all_logs:
             ret_dict['all_logs'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['AllLogs'],
@@ -233,3 +254,129 @@ def closestSeries(
         closestIdx.append(lookIn.index[idxMin])
     closestValues = closestValues.astype(referenceIdx.dtype)
     return closestValues, pd.Index(closestIdx)
+
+
+def applySavGol(
+        df, window_length_sec=None,
+        polyorder=None, fs=None,
+        deriv=0, pos=None, columns=None):
+    if fs is None:
+        fs = 1.
+    delta = float(fs) ** (-1)
+    window_length = int(2 * np.ceil(fs * window_length_sec / 2) + 1)
+    polyorder = min(polyorder, window_length - 1)
+    passedSeries = False
+    if isinstance(df, pd.Series):
+        passedSeries = True
+        data = df.to_frame(name='temp')
+        columns = ['temp']
+    else:
+        data = df.copy()
+    if columns is None:
+        columns = df.columns
+    savGolCoeffs = signal.savgol_coeffs(
+        window_length, polyorder, deriv=deriv,
+        delta=delta, pos=pos)
+    for cName in columns:
+        data.loc[:, cName] = np.convolve(data[cName], savGolCoeffs, mode='same')
+    if passedSeries:
+        data = data['temp']
+    return data
+
+
+def makeFilterCoeffsSOS(
+        filterOpts, samplingRate, plotting=False):
+    fOpts = deepcopy(filterOpts)
+    filterCoeffsSOS = np.ndarray(shape=(0, 6))
+    #
+    for fName, theseOpts in fOpts.items():
+        if theseOpts['btype'] == 'bandstop':
+            nNotchHarmonics = theseOpts.pop('nHarmonics')
+            notchFreq = theseOpts.pop('Wn')
+            notchQ = theseOpts.pop('Q')
+            theseOpts['fs'] = samplingRate
+            for harmonicOrder in range(1, nNotchHarmonics + 1):
+                w0 = harmonicOrder * notchFreq
+                bw = w0/notchQ
+                theseOpts['Wn'] = [w0 - bw/2, w0 + bw/2]
+                sos = signal.iirfilter(
+                        **theseOpts, output='sos')
+                filterCoeffsSOS = np.concatenate([filterCoeffsSOS, sos])
+                print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
+                if plotting:
+                    plotFilterOptsResponse(theseOpts)
+        if theseOpts['btype'] == 'high':
+            theseOpts['fs'] = samplingRate
+            sos = signal.iirfilter(
+                    **theseOpts, output='sos')
+            filterCoeffsSOS = np.concatenate([filterCoeffsSOS, sos])
+            print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
+            if plotting:
+                plotFilterOptsResponse(theseOpts)
+        #
+        if theseOpts['btype'] == 'low':
+            theseOpts['fs'] = samplingRate
+            sos = signal.iirfilter(
+                **theseOpts, output='sos')
+            filterCoeffsSOS = np.concatenate([filterCoeffsSOS, sos])
+            print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
+            if plotting:
+                plotFilterOptsResponse(theseOpts)
+    return filterCoeffsSOS
+
+
+def plotFilterOptsResponse(filterOpts):
+    sos = signal.iirfilter(**filterOpts, output='sos')
+    fig, ax1, ax2 = plotFilterResponse(sos, filterOpts['fs'])
+    ax1.set_title('{}'.format(filterOpts['btype']))
+    if isinstance(filterOpts['Wn'], list):
+        for Wn in filterOpts['Wn']:
+            ax1.axvline(
+                Wn, color='green', linestyle='--')  # cutoff frequency
+    else:
+        ax1.axvline(
+            filterOpts['Wn'],
+            color='green', linestyle='--')  # cutoff frequency
+    plt.show()
+    return
+
+
+def plotFilterResponse(sos, fs):
+    w, h = signal.sosfreqz(sos, worN=2048, fs=fs)
+    angles = np.unwrap(np.angle(h))
+    fig, ax1 = plt.subplots()
+    ax1.semilogx(w, 20 * np.log10(np.maximum(abs(h), 1e-5)))
+    ax1.set_xscale('log')
+    ax1.set_xlabel('Frequency [Hz]')
+    ax1.set_ylabel('Amplitude [dB]')
+    ax2 = ax1.twinx()
+    ax2.plot(w, angles, 'g')
+    ax2.set_ylabel('Angle (radians)', color='g')
+    return fig, ax1, ax2
+
+
+def plotFilterImpulseResponse(
+        fOpts, fs, useAcausal=True):
+    fig2, ax3 = plt.subplots()
+    ax4 = ax3.twinx()
+    fCoeffs = makeFilterCoeffsSOS(
+        fOpts, fs)
+    nMult = 3
+    if 'high' in fOpts:
+        ti = np.arange(
+            -nMult * fOpts['high']['Wn'] ** (-1),
+            nMult * fOpts['high']['Wn'] ** (-1),
+            fs ** (-1))
+    else:
+        ti = np.arange(-.2, .2, fs ** (-1))
+    impulse = np.zeros(ti.shape)
+    impulse[int(ti.shape[0]/2)] = 1
+    if useAcausal:
+        filtered = signal.sosfiltfilt(fCoeffs, impulse)
+    else:
+        filtered = signal.sosfilt(fCoeffs, impulse)
+    ax3.plot(ti, impulse, c='tab:blue', label='impulse')
+    ax3.legend(loc='upper right')
+    ax4.plot(ti, filtered, c='tab:orange', label='filtered')
+    ax4.legend(loc='lower right')
+    return fig2, ax3, ax4
