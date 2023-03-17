@@ -77,25 +77,41 @@ for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
 
-data_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/3_Preprocessed_Data/Day8_AM")
-blocks_list = [1, 2, 3, 4]
+# folder_name = "Day12_PM"
+# blocks_list = [4]
+folder_name = "Day11_PM"
+blocks_list = [2, 3]
+# folder_name = "Day8_AM"
+# blocks_list = [1, 2, 3, 4]
+
+data_path = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/3_Preprocessed_Data/{folder_name}")
+pdf_folder = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/5_Figures/{folder_name}")
+if not os.path.exists(pdf_folder):
+    os.makedirs(pdf_folder)
+
+this_emg_montage = emg_montages['lower_v2']
 blocks_list_str = '_'.join(f"{block_idx}" for block_idx in blocks_list)
 
 x_axis_name = 'amp'
-
 if x_axis_name == 'freq':
-    pdf_path = data_path / f"Blocks_{blocks_list_str}_emg_recruitment_freq.pdf"
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_recruitment_freq.pdf")
     left_sweep = 0
-    right_sweep = int(0.1 * 1e6)
+    right_sweep = int(0.4 * 1e6)
+    amp_cutoff = 9e3
+elif x_axis_name == 'freq_late':
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_recruitment_freq_late.pdf")
+    left_sweep = int(0.1 * 1e6)
+    right_sweep = int(0.4 * 1e6)
     amp_cutoff = 9e3
 elif x_axis_name == 'amp':
-    pdf_path = data_path / f"Blocks_{blocks_list_str}_emg_recruitment_amp.pdf"
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_recruitment_amp.pdf")
     left_sweep = 0
     right_sweep = int(0.1 * 1e6)
     freq_cutoff = 10
 
 verbose = 0
 standardize_emg = True
+normalize_across = False
 
 if standardize_emg:
     emg_scaler_path = data_path / "pickles" / "emg_scaler.p"
@@ -121,13 +137,11 @@ for block_idx in blocks_list:
         load_stim_info=True,
         load_vicon=True, vicon_as_df=True,
         load_ripple=True, ripple_variable_names=['NEV'], ripple_as_df=True
-        )
-
+    )
     if data_dict['vicon'] is not None:
-        this_emg = data_dict['vicon']['EMG'].iloc[:, :12].copy()
-        this_emg.columns = emg_montages['lower']
-        this_emg.columns.name = 'label'
-
+        this_emg = data_dict['vicon']['EMG'].copy()
+        this_emg.rename(columns=this_emg_montage, inplace=True)
+        this_emg.drop(columns=['NA'], inplace=True)
     if data_dict['stim_info'] is not None:
         all_stim_info[block_idx] = data_dict['stim_info']
         align_timestamps = all_stim_info[block_idx].index.get_level_values('timestamp_usec')
@@ -199,7 +213,7 @@ def reorder_fun(config_strings):
     return pd.Index([reordered_elecs.index(name) for name in config_strings], name=config_strings.name)
 
 emg_df = pd.concat(all_aligned_emg, names=['block', 'timestamp_usec', 'time_usec'])
-emg_df.drop(['LMH', 'L Forearm', 'R Forearm'], axis='columns', inplace=True)
+emg_df.drop(['L Forearm', 'R Forearm', 'Sync'], axis='columns', inplace=True)
 
 '''
 del aligned_dfs, all_aligned_emg, all_stim_info
@@ -209,16 +223,6 @@ plt.show()
 '''
 emg_metadata = emg_df.index.to_frame()
 recruitment_keys = ['elecConfig_str', 'amp', 'freq']
-
-### ['block', 'elecConfig_str', 'amp_binned', 'freq_binned']
-stim_info_df.loc[:, 'freq_binned'] = pd.cut(stim_info_df['freq'], bins=10)
-stim_info_df.loc[:, 'amp_binned'] = pd.cut(stim_info_df['amp'], bins=10)
-counts_df = stim_info_df.reset_index().groupby(['block', 'elecConfig_str']).count().iloc[:, 0]
-counts_df = counts_df.loc[counts_df != 0]
-counts_df.name = 'count'
-counts_df = counts_df.reset_index()
-counts_df.sort_values(by=['block', 'count'])
-###
 
 for meta_key in recruitment_keys:
     emg_metadata.loc[:, meta_key] = emg_df.index.copy().droplevel('time_usec').map(stim_info_df[meta_key]).to_numpy()
@@ -236,7 +240,7 @@ outlier_mask = pd.MultiIndex.from_frame(emg_metadata.loc[:, ['block', 'timestamp
 #
 emg_df = emg_df.loc[~outlier_mask, :]
 ####
-if x_axis_name == 'freq':
+if x_axis_name in ['freq', 'freq_late']:
     # remove amp <= cutoff
     stim_info_df = stim_info_df.loc[stim_info_df['amp'] >= amp_cutoff, :]
     emg_df = emg_df.loc[emg_df.index.get_level_values('amp') >= amp_cutoff, :]
@@ -248,9 +252,19 @@ elif x_axis_name == 'amp':
 #
 
 auc_df = emg_df.groupby(recruitment_keys + ['block', 'timestamp_usec']).mean()
-scaler = MinMaxScaler()
-auc_df.loc[:, :] = scaler.fit_transform(auc_df)
+# temp_average_auc = auc_df.groupby(recruitment_keys).mean()
+
+if normalize_across:
+    scaler = MinMaxScaler()
+    scaler.fit(auc_df.stack().to_frame())
+    auc_df = auc_df.apply(lambda x: scaler.transform(x.reshape(-1, 1)).flatten(), raw=True, axis='index')
+else:
+    scaler = MinMaxScaler()
+    scaler.fit(auc_df)
+    auc_df.loc[:, :] = scaler.transform(auc_df)
+
 average_auc_df = auc_df.groupby(recruitment_keys).mean()
+temp_average_auc = auc_df.groupby(recruitment_keys).mean()
 
 delta_auc_dict = {}
 for elec_a, elec_b in electrode_pairs:
@@ -263,6 +277,8 @@ delta_auc_df = pd.concat(delta_auc_dict, names=['elecConfig_str'])
 determine_side = lambda x: 'Left' if x[0] == 'L' else 'Right'
 
 auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
+average_auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
+delta_auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
 
 show_plots = False
 with PdfPages(pdf_path) as pdf:
@@ -277,20 +293,32 @@ with PdfPages(pdf_path) as pdf:
     plot_delta_auc.loc[:, 'side'] = plot_delta_auc['label'].apply(determine_side)
     plot_delta_auc.loc[:, 'muscle'] = plot_delta_auc['label'].map(muscle_names)
     ###
-    elec_subset = ['-(2,)+(3,)', '-(3,)+(2,)',]  #  plot_auc['elecConfig_str'].unique().tolist()
-    label_subset = ['LVL', 'LTA', 'LMG', 'RLVL', 'RTA', 'RMG']  #  plot_auc['label'].unique().tolist()
+    elec_subset = plot_auc['elecConfig_str'].unique().tolist()  #  ['-(2,)+(3,)', '-(3,)+(2,)',]
+    label_subset = ['LVL', 'LMH', 'LTA', 'LMG', 'LSOL', 'RLVL', 'RMH', 'RTA', 'RMG', 'RSOL']  #  plot_auc['label'].unique().tolist()
     ###
     elec_mask = plot_auc['elecConfig_str'].isin(elec_subset)
     label_mask = plot_auc['label'].isin(label_subset)
     plot_mask = elec_mask & label_mask
 
-    g = sns.relplot(
-        data=plot_auc.loc[plot_mask, :],
-        row='elecConfig_str', col='side',
-        hue='muscle',
-        x=x_axis_name, y='signal', kind='line',
-        errorbar='se', linewidth=2
-    )
+    if x_axis_name in ['freq', 'freq_late']:
+        g = sns.relplot(
+            data=plot_auc.loc[plot_mask, :],
+            row='elecConfig_str', col='side',
+            hue='muscle',
+            x='freq', y='signal', kind='line',
+            errorbar='se', linewidth=2
+        )
+    elif x_axis_name == 'amp':
+        g = sns.relplot(
+            data=plot_auc.loc[plot_mask, :],
+            row='elecConfig_str', col='side',
+            hue='muscle',
+            x='amp', y='signal', kind='line',
+            errorbar='se', linewidth=2
+        )
+    # change the line width for the legend
+    for line in g.legend.get_lines():
+        line.set_linewidth(4.0)
 
     g.figure.suptitle('AUC')
     pdf.savefig(bbox_inches='tight', pad_inches=0)
@@ -299,13 +327,26 @@ with PdfPages(pdf_path) as pdf:
     else:
         plt.close()
 
-    g = sns.relplot(
-        data=plot_auc.loc[plot_mask, :],
-        row='parent_elecConfig', col='side',
-        hue='muscle', style='elec_orientation',
-        x=x_axis_name, y='signal', kind='line',
-        errorbar='se', linewidth=2
-    )
+
+    if x_axis_name in ['freq', 'freq_late']:
+        g = sns.relplot(
+            data=plot_auc.loc[plot_mask, :],
+            row='parent_elecConfig', col='side',
+            hue='muscle', style='elec_orientation',
+            x='freq', y='signal', kind='line',
+            errorbar='se', linewidth=2
+        )
+    elif x_axis_name == 'amp':
+        g = sns.relplot(
+            data=plot_auc.loc[plot_mask, :],
+            row='parent_elecConfig', col='side',
+            hue='muscle', style='elec_orientation',
+            x='amp', y='signal', kind='line',
+            errorbar='se', linewidth=2
+        )
+    # change the line width for the legend
+    for line in g.legend.get_lines():
+        line.set_linewidth(4.0)
     g.figure.suptitle('AUC (orientation pairs)')
     pdf.savefig(bbox_inches='tight', pad_inches=0)
     if show_plots:
@@ -318,13 +359,23 @@ with PdfPages(pdf_path) as pdf:
     label_mask_delta = plot_auc['label'].isin(label_subset)
     plot_mask_delta = elec_mask_delta & label_mask_delta
 
-    g = sns.relplot(
-        data=plot_delta_auc.loc[plot_mask_delta, :],
-        row='elecConfig_str', col='side',
-        hue='muscle',
-        x=x_axis_name, y='signal', kind='line',
-        errorbar=None, linewidth=2
-    )
+
+    if x_axis_name in ['freq', 'freq_late']:
+        g = sns.relplot(
+            data=plot_delta_auc.loc[plot_mask_delta, :],
+            row='elecConfig_str', col='side',
+            hue='muscle',
+            x='freq', y='signal', kind='line',
+            errorbar=None, linewidth=2
+        )
+    elif x_axis_name == 'amp':
+        g = sns.relplot(
+            data=plot_delta_auc.loc[plot_mask_delta, :],
+            row='elecConfig_str', col='side',
+            hue='muscle',
+            x='amp', y='signal', kind='line',
+            errorbar=None, linewidth=2
+        )
     g.figure.suptitle('delta AUC from dipole rotation')
     pdf.savefig(bbox_inches='tight', pad_inches=0)
 

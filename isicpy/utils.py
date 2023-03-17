@@ -3,10 +3,12 @@ import numpy as np
 from isicpy.third_party.pymatreader import hdf5todict
 import h5py
 import pdb
+from tqdm import tqdm
 from scipy import signal
 import matplotlib.pyplot as plt
+import seaborn as sns
 from copy import deepcopy
-
+import traceback
 # function to load table variable from MAT-file
 # based on https://stackoverflow.com/questions/25853840/load-matlab-tables-in-python-using-scipy-io-loadmat
 def loadtablefrommat(
@@ -40,26 +42,32 @@ def sanitize_elec_config(
 
 
 def sanitize_stim_info(
-        si, nev_spikes, split_trains=True):
+        si, nev_spikes, split_trains=True, force_trains=False, remove_zero_amp=True):
     for col_name in ['elecCath', 'elecAno']:
         si.loc[:, col_name] = si[col_name].apply(sanitize_elec_config)
     for col_name in ['amp', 'freq', 'pulseWidth', 'res', 'nipTime']:
         si.loc[:, col_name] = si[col_name].astype(np.int64)
     si.loc[:, 'timestamp_usec'] = np.asarray(np.round(si['time'], 6) * 1e6, dtype=np.int64)
-
+    if force_trains:
+        si.loc[:, 'isContinuous'] = False
     # align to stim onset
-    si = si.loc[si['amp'] != 0, :].reset_index(drop=True)
+    if remove_zero_amp:
+        si = si.loc[si['amp'] != 0, :].reset_index(drop=True)
     si.loc[:, 'original_timestamp_usec'] = si['timestamp_usec'].copy()
     #
     all_spike_times = nev_spikes['time_usec'].copy()
     is_first_spike = (all_spike_times.diff() > 2e5)  # more than 200 msec / 5 Hz
     is_first_spike.iloc[0] = True  # first spike in recording is first in train
     rank_in_train = is_first_spike.astype(int)
-    for row_idx in nev_spikes.index:
-        if not is_first_spike.loc[row_idx]:
-            if row_idx > 0:
-                rank_in_train.loc[row_idx] = rank_in_train.loc[row_idx - 1] + 1
-    nev_spikes.loc['rank_in_train'] = rank_in_train
+    try:
+        for row_idx in nev_spikes.index:
+            if not is_first_spike.loc[row_idx]:
+                if row_idx > 0:
+                    rank_in_train.loc[row_idx] = rank_in_train.loc[row_idx - 1] + 1
+    except Exception:
+        traceback.print_exc()
+        pdb.set_trace()
+    nev_spikes.loc[:, 'rank_in_train'] = rank_in_train
     first_spike_times = all_spike_times.loc[is_first_spike]
     if split_trains:
         closest_nev_times_train, _ = closestSeries(
@@ -88,8 +96,10 @@ def sanitize_all_logs(al):
 def load_synced_mat(
         file_path=None,
         load_vicon=False, vicon_variable_names=None, vicon_as_df=False,
+        interpolate_emg=True,
         load_ripple=False, ripple_variable_names=None, ripple_as_df=False,
-        load_stim_info=False, stim_info_variable_names=None, stim_info_as_df=False, split_trains=True,
+        load_stim_info=False, stim_info_variable_names=None, stim_info_as_df=False, split_trains=True, force_trains=False, stim_info_traces=True,
+        stim_info_trace_time_vector='EMG',
         load_all_logs=False, all_logs_variable_names=None, all_logs_as_df=False,
         load_meta=False, meta_variable_names=None, meta_as_df=False,
         ):
@@ -141,6 +151,32 @@ def load_synced_mat(
                         )
                     df.index.name = 'time_usec'
                     df.columns.name = 'label'
+                    if interpolate_emg:
+                        '''
+                            filterOpts = {
+                                'low': {
+                                    'Wn': 500.,
+                                    'N': 4,
+                                    'btype': 'low',
+                                    'ftype': 'butter'
+                                },
+                            }
+                            analog_time_vector = np.asarray(df.index)
+                            nominal_dt = np.float64(np.median(np.diff(analog_time_vector)))
+                            emg_sample_rate = (nominal_dt ** -1) * 1e6
+                            filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
+                            filtered_df = pd.DataFrame(signal.sosfiltfilt(filterCoeffs, df, axis=0), index=df.index, columns=df.columns)
+                            df = filtered_df
+                        '''
+                        #  sample_data = df.iloc[:, [0,1]].abs().unstack().to_numpy()
+                        #  bins = np.linspace(0, 1e-6, 100).tolist() + np.linspace(1e-6, sample_data.max(), 100).tolist()
+                        #  plt.hist(sample_data, bins=bins); plt.show()
+                        cutout_mask = df.abs() < 2.5e-7
+                        for shift_amount in [-1, 1]:
+                            cutout_mask = cutout_mask | cutout_mask.shift(shift_amount).fillna(False)
+                        df = df.where(~cutout_mask)
+                        df.interpolate(inplace=True)
+                        df.fillna(0., inplace=True)
                     ret_dict['vicon']['EMG'] = df
         if load_ripple:
             ret_dict['ripple'] = hdf5todict(
@@ -221,7 +257,46 @@ def load_synced_mat(
             waveform_unit = just_nev['NEV']['Data']['Spikes'].pop('WaveformUnit')
             waveform_df = pd.DataFrame(just_nev['NEV']['Data']['Spikes'].pop('Waveform'))
             nev_spikes = pd.DataFrame(just_nev['NEV']['Data']['Spikes'])
-            ret_dict['stim_info'] = sanitize_stim_info(loadtablefrommat(ret_dict['stim_info']), nev_spikes, split_trains=split_trains)
+            ret_dict['stim_info'] = sanitize_stim_info(
+                loadtablefrommat(ret_dict['stim_info']), nev_spikes, split_trains=split_trains, force_trains=force_trains)
+            if stim_info_traces:
+                full_stim_info = hdf5todict(
+                    hdf5_file['Synced_Session_Data']['StimInfo'],
+                    ignore_fields=ignore_fields, variable_names=stim_info_variable_names)
+                full_stim_info = sanitize_stim_info(
+                    loadtablefrommat(full_stim_info), nev_spikes,
+                    split_trains=split_trains,
+                    force_trains=force_trains, remove_zero_amp=False)
+                full_stim_info.loc[:, 'elecConfig_str'] = full_stim_info.apply(lambda x: f'-{x["elecCath"]}+{x["elecAno"]}', axis='columns')
+                config_metadata = full_stim_info.loc[:, ['elecCath', 'elecAno', 'elecConfig_str']].drop_duplicates().set_index('elecConfig_str')
+                time_vector = ret_dict['vicon']['EMG'].index  # in usec
+                #
+                stim_info_amplitude = pd.DataFrame(np.nan, index=time_vector, columns=config_metadata.index)
+                stim_info_amplitude.iloc[0, :] = 0
+                if '-(0,)+(0,)' in stim_info_amplitude.columns:
+                    stim_info_amplitude.drop(columns='-(0,)+(0,)', inplace=True)
+                stim_info_freq = pd.DataFrame(np.nan, index=time_vector, columns=config_metadata.index)
+                stim_info_freq.iloc[0, :] = 0
+                if '-(0,)+(0,)' in stim_info_freq.columns:
+                    stim_info_freq.drop(columns='-(0,)+(0,)', inplace=True)
+                for time_usec, this_stim_update in tqdm(full_stim_info.iterrows(), total=full_stim_info.shape[0]):
+                    time_mask = stim_info_amplitude.index > time_usec
+                    if time_mask.any():
+                        nearest_time = stim_info_amplitude.index[time_mask][0]
+                        this_electrode_label = this_stim_update['elecConfig_str']
+                        stim_info_amplitude.loc[nearest_time, this_electrode_label] = this_stim_update['amp']
+                        stim_info_freq.loc[nearest_time, this_electrode_label] = this_stim_update['freq']
+                        # stim_info_amplitude.loc[nearest_time, :] = 0
+                        # stim_info_freq.loc[nearest_time, :] = 0
+                        # if this_electrode_label != '-(0,)+(0,)':
+                        #     stim_info_amplitude.loc[nearest_time, this_electrode_label] = this_stim_update['amp']
+                        #     stim_info_freq.loc[nearest_time, this_electrode_label] = this_stim_update['freq']
+                stim_info_freq = stim_info_freq.fillna(method='ffill').fillna(method='bfill')
+                stim_info_amplitude = stim_info_amplitude.fillna(method='ffill').fillna(method='bfill')
+                ret_dict['stim_info_traces'] = {
+                    'amp': stim_info_amplitude,
+                    'freq': stim_info_freq
+                }
         if load_all_logs:
             ret_dict['all_logs'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['AllLogs'],

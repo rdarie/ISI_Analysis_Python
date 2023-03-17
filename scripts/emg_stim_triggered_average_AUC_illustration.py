@@ -1,15 +1,12 @@
 
 import matplotlib as mpl
 import os
-
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
-
 if 'CCV_HEADLESS' in os.environ:
     mpl.use('Agg')   # generate postscript output
 else:
     mpl.use('QT5Agg')   # generate interactive output
-
 import traceback
 from isicpy.utils import load_synced_mat, makeFilterCoeffsSOS
 from isicpy.lookup_tables import emg_montages
@@ -25,9 +22,10 @@ from scipy import signal
 from sklearn.preprocessing import MinMaxScaler
 from matplotlib.backends.backend_pdf import PdfPages
 
+pd_idx = pd.IndexSlice
 useDPI = 200
 dpiFactor = 72 / useDPI
-
+font_zoom_factor = 1.
 import seaborn as sns
 from matplotlib import pyplot as plt
 
@@ -42,13 +40,13 @@ snsRCParams = {
         "axes.spines.top": True,
         "axes.linewidth": .125,
         "grid.linewidth": .2,
-        "font.size": 4,
-        "axes.labelsize": 14,
-        "axes.titlesize": 18,
-        "xtick.labelsize": 10,
-        "ytick.labelsize": 10,
-        "legend.fontsize": 14,
-        "legend.title_fontsize": 18,
+        "font.size": 4 * font_zoom_factor,
+        "axes.labelsize": 14 * font_zoom_factor,
+        "axes.titlesize": 18 * font_zoom_factor,
+        "xtick.labelsize": 10 * font_zoom_factor,
+        "ytick.labelsize": 10 * font_zoom_factor,
+        "legend.fontsize": 14 * font_zoom_factor,
+        "legend.title_fontsize": 18 * font_zoom_factor,
         "xtick.bottom": True,
         "xtick.top": False,
         "ytick.left": True,
@@ -65,14 +63,14 @@ snsRCParams = {
         "ytick.direction": 'in',
     }
 mplRCParams = {
-    'figure.titlesize': 16,
+    'figure.titlesize': 16 * font_zoom_factor,
     'pdf.fonttype': 42,
     'ps.fonttype': 42,
     }
 sns.set(
     context='talk', style='white',
     palette='dark', font='sans-serif',
-    font_scale=2, color_codes=True, rc=snsRCParams)
+    font_scale=1, color_codes=True, rc=snsRCParams)
 for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
@@ -86,27 +84,44 @@ blocks_list_str = '_'.join(f"{block_idx}" for block_idx in blocks_list)
 pdf_folder = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/5_Figures/{folder_name}")
 if not os.path.exists(pdf_folder):
     os.makedirs(pdf_folder)
-pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_stim_triggered_average.pdf")
 
 this_emg_montage = emg_montages['lower_v2']
-left_sweep = 0
-right_sweep = int(0.5 * 1e6)
-verbose = 0
-standardize_emg = True
 
+x_axis_name = 'freq_late'
+left_sweep = - int (100 * 1e3)
+right_sweep = int(500 * 1e3)
+verbose = 0
+plots_dt = 1e-3
+if x_axis_name == 'freq':
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_sta_freq.pdf")
+    window_left_sweep = 0
+    window_right_sweep = int(0.4 * 1e6)
+    amp_cutoff = 9e3
+elif x_axis_name == 'freq_late':
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_sta_freq_late.pdf")
+    window_left_sweep = int(0.1 * 1e6)
+    window_right_sweep = int(0.4 * 1e6)
+    amp_cutoff = 9e3
+elif x_axis_name == 'amp':
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_sta_amp.pdf")
+    window_left_sweep = 0
+    window_right_sweep = int(0.1 * 1e6)
+    freq_cutoff = 10
+
+standardize_emg = True
 if standardize_emg:
     emg_scaler_path = data_path / "pickles" / "emg_scaler.p"
     with open(emg_scaler_path, 'rb') as handle:
         scaler = pickle.load(handle)
 
-'''filterOpts = {
+filterOpts = {
     'low': {
         'Wn': 500.,
         'N': 4,
         'btype': 'low',
         'ftype': 'butter'
     },
-}'''
+}
 
 all_stim_info = {}
 all_aligned_emg = {}
@@ -131,19 +146,18 @@ for block_idx in blocks_list:
         analog_time_vector = np.asarray(this_emg.index)
         nominal_dt = np.int64(np.median(np.diff(analog_time_vector)))
         emg_sample_rate = np.round((nominal_dt * 1e-6) ** -1)
+        emg_downsample = int(np.ceil(plots_dt / nominal_dt))
         epoch_t = np.arange(left_sweep, right_sweep, nominal_dt)
         nominal_num_samp = epoch_t.shape[0]
 
         if standardize_emg:
             this_emg.loc[:, :] = scaler.transform(this_emg)
 
-        '''
-        filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
-        this_emg = pd.DataFrame(
-            signal.sosfiltfilt(filterCoeffs, (this_emg - this_emg.mean()).abs(), axis=0),
-            index=this_emg.index, columns=this_emg.columns)
-            '''
-        this_emg = (this_emg - this_emg.mean()).abs()
+        # filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
+        # this_emg = pd.DataFrame(
+        #     signal.sosfiltfilt(filterCoeffs, this_emg.abs(), axis=0),
+        #     index=this_emg.index, columns=this_emg.columns)
+        # this_emg = (this_emg - this_emg.mean()).abs()
         print(f'Epoching EMG from \n\t{file_path}')
         for timestamp in tqdm(align_timestamps.to_numpy()):
             this_mask = (analog_time_vector >= timestamp + left_sweep) & (analog_time_vector <= timestamp + right_sweep)
@@ -200,6 +214,7 @@ gc.collect()
 g = sns.displot(data=stim_info_df, x='delta_timestamp_usec', rug=True, element='step', fill=False)
 plt.show()
 '''
+
 emg_metadata = emg_df.index.to_frame()
 recruitment_keys = ['elecConfig_str', 'amp', 'freq']
 for meta_key in recruitment_keys:
@@ -209,68 +224,88 @@ emg_df.index = pd.MultiIndex.from_frame(emg_metadata)
 #### outlier removal
 auc_per_trial = emg_df.groupby(['block', 'timestamp_usec']).mean()
 auc_bar, auc_std = np.mean(auc_per_trial.to_numpy().flatten()), np.std(auc_per_trial.to_numpy().flatten())
-sns.displot(auc_per_trial)
 n_std = 6
 outlier_bounds = (auc_bar - n_std * auc_std, auc_bar + n_std * auc_std)
 outlier_mask_per_trial = (auc_per_trial < outlier_bounds[0]) | (auc_per_trial > outlier_bounds[1])
 outlier_mask_per_trial = outlier_mask_per_trial.any(axis='columns')
 outlier_trials = outlier_mask_per_trial.index[outlier_mask_per_trial]
 outlier_mask = pd.MultiIndex.from_frame(emg_metadata.loc[:, ['block', 'timestamp_usec']]).isin(outlier_trials)
-#
 emg_df = emg_df.loc[~outlier_mask, :]
 ####
 
 emg_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
+## detrend
+for name, group in emg_df.groupby(['block', 'timestamp_usec']):
+    emg_df.loc[group.index, :] = group - group.mean()
 
 show_plots = False
 with PdfPages(pdf_path) as pdf:
     ###
-    plot_emg = emg_df.stack().to_frame(name='signal').reset_index()
-    elec_subset = plot_emg['elecConfig_str'].unique().tolist()  # ['-(2,)+(3,)', '-(3,)+(2,)',]
-    label_subset = ['LVL', 'LMH', 'LTA', 'LMG', 'LSOL', 'RLVL', 'RMH', 'RTA', 'RMG', 'RSOL'] # plot_emg['label'].unique().tolist() , 'LSOL' , 'RMH' , 'RSOL'
+    if x_axis_name in ['freq', 'freq_late']:
+        elec_subset = ['-(18,)+(26,)', '-(26,)+(27,)', '-(18,)+(27,)']   #  plot_emg['elecConfig_str'].unique().tolist()
+        label_subset = ['RTA', 'RMG', 'RSOL']  #  plot_emg['label'].unique().tolist()
+        recruitment_mask = emg_df.index.get_level_values('amp') >= amp_cutoff
+        hue_var = 'freq'
+    if x_axis_name == 'amp':
+        elec_subset = ['-(18,)+(26,)', '-(26,)+(27,)', '-(18,)+(27,)']   #  plot_emg['elecConfig_str'].unique().tolist()
+        label_subset = ['RTA', 'RMG', 'RSOL']  #  plot_emg['label'].unique().tolist()
     ###
+    # plot_emg = emg_df.loc[recruitment_mask, :].groupby(
+    #     ['elecConfig_str', hue_var, 'time_usec']).mean().stack().to_frame(name='signal').reset_index()
+    plot_emg = emg_df.loc[recruitment_mask, :].stack().to_frame(name='signal').reset_index()
     plot_emg.loc[:, 'time_sec'] = plot_emg['time_usec'] * 1e-6
-    block_timestamp_index = pd.MultiIndex.from_frame(plot_emg.loc[:, ['block', 'timestamp_usec']])
-    for meta_key in ['elecConfig_str', 'amp', 'freq']:
-        plot_emg.loc[:, meta_key] = block_timestamp_index.map(stim_info_df[meta_key]).to_numpy()
+    downsampled_mask = plot_emg['time_usec'].isin(plot_emg['time_usec'].unique()[::emg_downsample])
 
-    downsampled_mask = plot_emg['time_usec'].isin(plot_emg['time_usec'].unique()[::1])
     label_mask = plot_emg['label'].isin(label_subset)
     elec_mask = plot_emg['elecConfig_str'].isin(elec_subset)
-    plot_mask = downsampled_mask & elec_mask & label_mask
+    plot_mask = elec_mask & label_mask #  & downsampled_mask
+    plot_emg = plot_emg.loc[plot_mask, :].copy()
 
-    vert_offset = 5e-2 * (plot_emg['signal'].max() - plot_emg['signal'].min())
-    horz_offset = 0 * (plot_emg['time_sec'].max() - plot_emg['time_sec'].min())
-    n_offsets = 0
-    for name, group in plot_emg.groupby('freq'):
-        plot_emg.loc[group.index, 'signal'] = group['signal'] + n_offsets * vert_offset
-        plot_emg.loc[group.index, 'time_sec'] = group['time_sec'] + n_offsets * horz_offset
-        n_offsets += 1
+    hline_df = plot_emg.loc[:, ['elecConfig_str', hue_var, 'block', 'timestamp_usec', 'signal']].groupby(['elecConfig_str', hue_var, 'block', 'timestamp_usec']).mean() * 0
 
-    vert_offset = 5e-3 * (plot_emg['signal'].max() - plot_emg['signal'].min())
-    horz_offset = -5e-2 * (plot_emg['time_sec'].max() - plot_emg['time_sec'].min())
-    n_offsets = 0
-    for name, group in plot_emg.groupby('amp'):
-        plot_emg.loc[group.index, 'signal'] = group['signal'] + n_offsets * vert_offset
-        plot_emg.loc[group.index, 'time_sec'] = group['time_sec'] + n_offsets * horz_offset
-        n_offsets += 1
+    vert_span = plot_emg.loc[:, 'signal'].max() - plot_emg.loc[:, 'signal'].min()
+    horz_span = plot_emg.loc[:, 'time_sec'].max() - plot_emg.loc[:, 'time_sec'].min()
+
+    vert_offset = 10e-2 * vert_span
+    horz_offset = 0 * horz_span
+    vert_sub_offset = 5e-2 * vert_span
+    horz_sub_offset = 0 * horz_span
+
+    for row_name, row_group in plot_emg.groupby('elecConfig_str'):
+        total_vert_offset = 0
+        total_horz_offset = 0
+        for hue_name, hue_group in row_group.groupby(hue_var):
+            # print(f'hue_group.shape = {hue_group.shape}')
+            for sub_name, sub_group in hue_group.groupby(['block', 'timestamp_usec']):
+                # print(f'\tsub_group.shape = {sub_group.shape}')
+                # print(f'\n{sub_group}')
+                plot_emg.loc[sub_group.index, 'signal'] += total_vert_offset
+                hline_df.loc[pd_idx[row_name, hue_name, sub_name[0], sub_name[1]], :] += total_vert_offset
+                plot_emg.loc[sub_group.index, 'time_sec'] += total_horz_offset
+                total_vert_offset += vert_sub_offset
+                total_horz_offset += horz_sub_offset
+            total_vert_offset += vert_offset
+            total_horz_offset += horz_offset
 
     print('Saving stim-triggered plots')
-    for elecConfig in tqdm(elec_subset):
-        elec_mask = plot_emg['elecConfig_str'] == elecConfig
-        g = sns.relplot(
-            data=plot_emg.loc[plot_mask & elec_mask, :],
-            col='label', col_wrap=5,
-            x='time_sec', y='signal',
-            hue='amp', style='freq', dashes=False,
-            kind='line',
-            # units='timestamp_usec', estimator=None,
-            errorbar=None,
-            height=5, aspect=2 / 3
-            )
-        g.figure.suptitle(f"{elecConfig}")
-        pdf.savefig(bbox_inches='tight', pad_inches=0)
-        if show_plots:
-            plt.show()
-        else:
-            plt.close()
+    g = sns.relplot(
+        data=plot_emg,
+        col='label', row='elecConfig_str',
+        x='time_sec', y='signal',
+        hue=hue_var,
+        kind='line',
+        units='timestamp_usec', estimator=None,
+        errorbar=None,
+        height=5, aspect=2 / 5
+        )
+
+    g.set_titles(template='{row_name}\n{col_name}')
+    for ax_name, this_ax in g.axes_dict.items():
+        for row_idx, row in hline_df.iterrows():
+            if row_idx[0] == ax_name[0]:
+                this_ax.axhline(y=row['signal'], alpha=0.25, zorder=0.1)
+    pdf.savefig(bbox_inches='tight', pad_inches=0)
+    if show_plots:
+        plt.show()
+    else:
+        plt.close()
