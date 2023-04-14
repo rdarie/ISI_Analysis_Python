@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from copy import deepcopy
 import traceback
+
 # function to load table variable from MAT-file
 # based on https://stackoverflow.com/questions/25853840/load-matlab-tables-in-python-using-scipy-io-loadmat
-def loadtablefrommat(
-        mat):
+def loadtablefrommat(mat):
     """
     read a struct-ified table variable (and column names) from a MAT-file
     and return pandas.DataFrame object.
@@ -42,7 +42,9 @@ def sanitize_elec_config(
 
 
 def sanitize_stim_info(
-        si, nev_spikes, split_trains=True, force_trains=False, remove_zero_amp=True):
+        si, nev_spikes,
+        split_trains=True, force_trains=False,
+        remove_zero_amp=True):
     for col_name in ['elecCath', 'elecAno']:
         si.loc[:, col_name] = si[col_name].apply(sanitize_elec_config)
     for col_name in ['amp', 'freq', 'pulseWidth', 'res', 'nipTime']:
@@ -95,29 +97,32 @@ def sanitize_all_logs(al):
 
 def load_synced_mat(
         file_path=None,
-        load_vicon=False, vicon_variable_names=None, vicon_as_df=False,
+        load_vicon=False, vicon_variable_names=None, vicon_as_df=False, kinematics_time_offset=0,
         interpolate_emg=True,
         load_ripple=False, ripple_variable_names=None, ripple_as_df=False,
         load_stim_info=False, stim_info_variable_names=None, stim_info_as_df=False, split_trains=True, force_trains=False, stim_info_traces=True,
         stim_info_trace_time_vector='EMG',
         load_all_logs=False, all_logs_variable_names=None, all_logs_as_df=False,
-        load_meta=False, meta_variable_names=None, meta_as_df=False,
+        load_meta=False, meta_variable_names=None, meta_as_df=False, verbose=0,
         ):
     ret_dict = {}
     ignore_fields = ['#refs#']
     with h5py.File(file_path, 'r') as hdf5_file:
         # hdf5_file = h5py.File(file_path, 'r')
         if load_vicon:
+            if verbose > 0:
+                print("hdf5todict(hdf5_file['Synced_Session_Data']['Vicon'])")
             ret_dict['vicon'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['Vicon'],
                 ignore_fields=ignore_fields, variable_names=vicon_variable_names)
             if 'Points' in ret_dict['vicon']:
-                ret_dict['vicon']['Points']['time_usec'] = np.asarray(np.round(ret_dict['vicon']['Points']['Time'], 6) * 1e6, dtype=np.int64)
-            if 'Devices' in ret_dict['vicon']:
-                ret_dict['vicon']['Devices']['time_usec'] = np.asarray(np.round(ret_dict['vicon']['Devices']['Time'], 6) * 1e6, dtype=np.int64)
-            if 'EMG' in ret_dict['vicon']:
-                ret_dict['vicon']['EMG']['time_usec'] = np.asarray(np.round(ret_dict['vicon']['EMG']['Time'], 6) * 1e6, dtype=np.int64)
+                ret_dict['vicon']['Points']['Time'] = ret_dict['vicon']['Points']['Time'] + kinematics_time_offset
+            for var_name in ['Points', 'Devices', 'EMG', 'Accel_X', 'Accel_Y', 'Accel_Z']:
+                if var_name in ret_dict['vicon']:
+                    ret_dict['vicon'][var_name]['time_usec'] = np.asarray(np.round(ret_dict['vicon'][var_name]['Time'], 6) * 1e6, dtype=np.int64)
             if vicon_as_df:
+                if verbose > 0:
+                    print("\tConverting Vicon data to DataFrames")
                 if 'Points' in ret_dict['vicon']:
                     x = pd.DataFrame(
                         ret_dict['vicon']['Points']['Data'][0, :, :].T,
@@ -132,6 +137,7 @@ def load_synced_mat(
                         index=ret_dict['vicon']['Points']['time_usec'],
                         columns=ret_dict['vicon']['Points']['Labels'])
                     df = pd.concat({'x': x, 'y': y, 'z': z}, names=['axis', 'label'], axis='columns')
+                    df = df.interpolate().fillna(method='ffill').fillna(method='bfill')
                     df.index.name = 'time_usec'
                     df = df.swaplevel(axis='columns')
                     df.sort_index(axis='columns', inplace=True, level=['label', 'axis'])
@@ -144,41 +150,25 @@ def load_synced_mat(
                     df.index.name = 'time_usec'
                     df.columns.name = 'label'
                     ret_dict['vicon']['Devices'] = df
-                if 'EMG' in ret_dict['vicon']:
-                    df = pd.DataFrame(
-                        ret_dict['vicon']['EMG']['Data'],
-                        index=ret_dict['vicon']['EMG']['time_usec']
-                        )
-                    df.index.name = 'time_usec'
-                    df.columns.name = 'label'
-                    if interpolate_emg:
-                        '''
-                            filterOpts = {
-                                'low': {
-                                    'Wn': 500.,
-                                    'N': 4,
-                                    'btype': 'low',
-                                    'ftype': 'butter'
-                                },
-                            }
-                            analog_time_vector = np.asarray(df.index)
-                            nominal_dt = np.float64(np.median(np.diff(analog_time_vector)))
-                            emg_sample_rate = (nominal_dt ** -1) * 1e6
-                            filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
-                            filtered_df = pd.DataFrame(signal.sosfiltfilt(filterCoeffs, df, axis=0), index=df.index, columns=df.columns)
-                            df = filtered_df
-                        '''
-                        #  sample_data = df.iloc[:, [0,1]].abs().unstack().to_numpy()
-                        #  bins = np.linspace(0, 1e-6, 100).tolist() + np.linspace(1e-6, sample_data.max(), 100).tolist()
-                        #  plt.hist(sample_data, bins=bins); plt.show()
-                        cutout_mask = df.abs() < 2.5e-7
-                        for shift_amount in [-1, 1]:
-                            cutout_mask = cutout_mask | cutout_mask.shift(shift_amount).fillna(False)
-                        df = df.where(~cutout_mask)
-                        df.interpolate(inplace=True)
-                        df.fillna(0., inplace=True)
-                    ret_dict['vicon']['EMG'] = df
+                for var_name in ['EMG', 'Accel_X', 'Accel_Y', 'Accel_Z']:
+                    if var_name in ret_dict['vicon']:
+                        df = pd.DataFrame(
+                            ret_dict['vicon'][var_name]['Data'],
+                            index=ret_dict['vicon'][var_name]['time_usec']
+                            )
+                        df.index.name = 'time_usec'
+                        df.columns.name = 'label'
+                        if interpolate_emg:
+                            cutout_mask = df.abs() < 2.5e-7
+                            for shift_amount in [-1, 1]:
+                                cutout_mask = cutout_mask | cutout_mask.shift(shift_amount).fillna(False)
+                            df = df.where(~cutout_mask)
+                            df.interpolate(inplace=True)
+                            df.fillna(0., inplace=True)
+                        ret_dict['vicon'][var_name] = df
         if load_ripple:
+            if verbose > 0:
+                print("hdf5todict(hdf5_file['Synced_Session_Data']['Ripple_Data'])")
             ret_dict['ripple'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['Ripple_Data'],
                 ignore_fields=ignore_fields, variable_names=ripple_variable_names)
@@ -209,7 +199,12 @@ def load_synced_mat(
             if 'NF7' in ret_dict['ripple']:
                 ret_dict['ripple']['NF7']['time_usec'] = np.asarray(
                     np.round(ret_dict['ripple']['NF7']['time'], 6) * 1e6, dtype=np.int64)
+            if 'TimeCode' in ret_dict['ripple']:
+                ret_dict['ripple']['TimeCode']['time_usec'] = np.asarray(
+                    np.round(ret_dict['ripple']['TimeCode']['PacketTime'], 6) * 1e6, dtype=np.int64)
             if ripple_as_df:
+                if verbose > 0:
+                    print("\tConverting Ripple data to DataFrames")
                 if 'NF7' in ret_dict['ripple']:
                     n_rows = ret_dict['ripple']['NF7']['time_usec'].shape[0]
                     n_cols = len(ret_dict['ripple']['NF7']['AnalogWaveforms'])
@@ -222,6 +217,9 @@ def load_synced_mat(
                     df.index.name = 'time_usec'
                     df.columns.name = 'label'
                     ret_dict['ripple']['NF7'] = df
+                if 'TimeCode' in ret_dict['ripple']:
+                    ret_dict['ripple']['TimeCode'] = pd.DataFrame(ret_dict['ripple']['TimeCode'])
+                    ret_dict['ripple']['TimeCode'].set_index('time_usec', inplace=True)
                 if 'NS5' in ret_dict['ripple']:
                     column_names = ret_dict['ripple']['NS5']['ElectrodesInfo']['Label']
                     electrodes_info = pd.DataFrame(ret_dict['ripple']['NS5']['ElectrodesInfo'])
@@ -246,6 +244,8 @@ def load_synced_mat(
                     elec_ids[elec_ids > 5120] = elec_ids[elec_ids > 5120] - 5120
                     ret_dict['ripple']['NEV'] = pd.DataFrame(ret_dict['ripple']['NEV']['Data']['Spikes'])
         if load_stim_info:
+            if verbose > 0:
+                print("hdf5todict(hdf5_file['Synced_Session_Data']['StimInfo'])")
             ret_dict['stim_info'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['StimInfo'],
                 ignore_fields=ignore_fields, variable_names=stim_info_variable_names)
@@ -257,9 +257,14 @@ def load_synced_mat(
             waveform_unit = just_nev['NEV']['Data']['Spikes'].pop('WaveformUnit')
             waveform_df = pd.DataFrame(just_nev['NEV']['Data']['Spikes'].pop('Waveform'))
             nev_spikes = pd.DataFrame(just_nev['NEV']['Data']['Spikes'])
+            if verbose > 0:
+                print("\tret_dict['stim_info'] = sanitize_stim_info(oadtablefrommat(ret_dict['stim_info']), nev_spikes,...")
             ret_dict['stim_info'] = sanitize_stim_info(
-                loadtablefrommat(ret_dict['stim_info']), nev_spikes, split_trains=split_trains, force_trains=force_trains)
+                loadtablefrommat(ret_dict['stim_info']), nev_spikes,
+                split_trains=split_trains, force_trains=force_trains)
             if stim_info_traces:
+                if verbose > 0:
+                    print("hdf5todict(hdf5_file['Synced_Session_Data']['StimInfo'])\t(for traces)")
                 full_stim_info = hdf5todict(
                     hdf5_file['Synced_Session_Data']['StimInfo'],
                     ignore_fields=ignore_fields, variable_names=stim_info_variable_names)
@@ -275,28 +280,34 @@ def load_synced_mat(
                 stim_info_amplitude.iloc[0, :] = 0
                 if '-(0,)+(0,)' in stim_info_amplitude.columns:
                     stim_info_amplitude.drop(columns='-(0,)+(0,)', inplace=True)
+                if '-()+()' in stim_info_amplitude.columns:
+                    stim_info_amplitude.drop(columns='-()+()', inplace=True)
                 stim_info_freq = pd.DataFrame(np.nan, index=time_vector, columns=config_metadata.index)
                 stim_info_freq.iloc[0, :] = 0
                 if '-(0,)+(0,)' in stim_info_freq.columns:
                     stim_info_freq.drop(columns='-(0,)+(0,)', inplace=True)
-                for time_usec, this_stim_update in tqdm(full_stim_info.iterrows(), total=full_stim_info.shape[0]):
+                if '-()+()' in stim_info_freq.columns:
+                    stim_info_freq.drop(columns='-()+()', inplace=True)
+                if verbose > 0:
+                    print("\tEntering stim_traces loop")
+                for _, stim_group in full_stim_info.reset_index().groupby('timestamp_usec'):
+                    time_usec = stim_group['timestamp_usec'].iloc[0]
                     time_mask = stim_info_amplitude.index > time_usec
                     if time_mask.any():
                         nearest_time = stim_info_amplitude.index[time_mask][0]
-                        this_electrode_label = this_stim_update['elecConfig_str']
-                        stim_info_amplitude.loc[nearest_time, this_electrode_label] = this_stim_update['amp']
-                        stim_info_freq.loc[nearest_time, this_electrode_label] = this_stim_update['freq']
-                        # stim_info_amplitude.loc[nearest_time, :] = 0
-                        # stim_info_freq.loc[nearest_time, :] = 0
-                        # if this_electrode_label != '-(0,)+(0,)':
-                        #     stim_info_amplitude.loc[nearest_time, this_electrode_label] = this_stim_update['amp']
-                        #     stim_info_freq.loc[nearest_time, this_electrode_label] = this_stim_update['freq']
+                        stim_info_amplitude.loc[nearest_time, :] = 0
+                        stim_info_freq.loc[nearest_time, :] = 0
+                        for _, this_stim_update in stim_group.iterrows():
+                            this_electrode_label = this_stim_update['elecConfig_str']
+                            # if this_electrode_label not in ('-(0,)+(0,)', '-()+()',):
+                            stim_info_amplitude.loc[nearest_time, this_electrode_label] = this_stim_update['amp']
+                            stim_info_freq.loc[nearest_time, this_electrode_label] = this_stim_update['freq']
                 stim_info_freq = stim_info_freq.fillna(method='ffill').fillna(method='bfill')
                 stim_info_amplitude = stim_info_amplitude.fillna(method='ffill').fillna(method='bfill')
+                stim_info_amplitude.clip(lower=-15000, upper=15000, inplace=True)
                 ret_dict['stim_info_traces'] = {
-                    'amp': stim_info_amplitude,
-                    'freq': stim_info_freq
-                }
+                    'amp': stim_info_amplitude, 'freq': stim_info_freq
+                    }
         if load_all_logs:
             ret_dict['all_logs'] = hdf5todict(
                 hdf5_file['Synced_Session_Data']['AllLogs'],
@@ -455,3 +466,26 @@ def plotFilterImpulseResponse(
     ax4.plot(ti, filtered, c='tab:orange', label='filtered')
     ax4.legend(loc='lower right')
     return fig2, ax3, ax4
+
+
+def count_frames(tcode_str):
+    frame_hour, frame_minute, frame_second, frame = [int(num) for num in tcode_str.split(':')]
+    total_frames = frame_hour * (60 ** 2) * 30 + frame_minute * 60 * 30 + frame_second * 30 + frame
+    return total_frames
+
+def timestring_to_timestamp(
+        tcode, fps=29.97,
+        year=2022, month=10, day=31,
+        timecode_type='DF'):
+    if timecode_type == 'DF':
+        hour, minute, second, frame = [int(num) for num in tcode.split(':')]
+        usec = int(1e6 * frame / fps)
+        tstamp = pd.Timestamp(
+            year=year, month=month, day=day,
+            hour=hour, minute=minute, second=second,
+            microsecond=usec)
+    elif timecode_type == 'NDF':
+        total_frames = count_frames(tcode)
+        t_delta = pd.Timedelta(total_frames / fps, unit='sec')
+        tstamp = pd.Timestamp(year=year, month=month, day=day) + t_delta
+    return tstamp

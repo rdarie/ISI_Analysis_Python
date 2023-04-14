@@ -79,11 +79,55 @@ muscle_names = {
     'R Forearm': 'forearm'
 }
 kinematics_offsets = {
+    'Day11_AM': {
+        1: 0.,
+        2: 0.,
+        3: 0.,
+        4: 0.,
+    },
     'Day12_PM': {
         3: 1.6,
-        4: 1.6
+        4: 0.7
     },
     'Day8_AM': {
-        4: 1.6
+        4: 0.9
+    }
+}
+video_info = {
+    'Day8_AM': {
+        4: {
+            'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day08_AM_Cam2_GH010042.mp4'],
+            'start_timestamps': ['23:56:38:02'],
+            'rollovers': [True]
+        }
+    },
+    'Day11_AM': {
+        1: {
+            'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4'],
+            'start_timestamps': ['23:05:24:14'],
+            'rollovers': [False]
+        },
+        2: {
+            'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4'],
+            'start_timestamps': ['23:05:24:14'],
+            'rollovers': [False]
+        },
+        4: {
+            'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4'],
+            'start_timestamps': ['23:05:24:14'],
+            'rollovers': [False]
+        }
+    },
+    'Day12_PM': {
+        4: {
+            'paths': [
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day12_PM_Cam1.mp4',
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day12_PM_Cam2_GH010047_Masked.mp4',
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day12_PM_Cam3.mp4',
+                ],
+            'start_timestamps': ['02:36:10:16', '02:17:20:02', '02:17:47:27',],
+            'rollovers': [False, False, False],
+            # '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day12_PM_Cam2_2.mp4', '04:02:37:05'
+        }
     }
 }

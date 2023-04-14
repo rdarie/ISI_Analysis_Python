@@ -1,0 +1,14 @@
+label,pretty_label,which_array,palette_idx
+"-(14,)+(6, 22)",Left Flex.,     caudal,     0
+"-(139,)+(131,)",Left Flex.,     rostral,    1
+"-(27,)+(19,)",Right Flex.,    caudal,     2
+"-(27,)+(28,)",Right Flex.,    caudal,     2
+"-(160,)+(152,)",Right Flex.,    rostral,    3
+"-(3,)+(2,)",Left Ext.,      caudal,     4
+"-(136,)+(144,)",Left Ext.,      rostral,    5
+"-(27,)+(26,)",Right Ext.,     caudal,     6
+"-(155,)+(147,)",Right Ext.,     rostral,    7
+"-(131,)+(130,)",Left Foot Strike,    rostral,    8
+"-(155,)+(154,)",Right Foot Strike,   rostral,    9
+"-(14, 136)+(6, 22)","-(14, 136)+(6, 22)",across,   9
+"-(116,)+(152,)","-(116,)+(152,)",      rostral,    9

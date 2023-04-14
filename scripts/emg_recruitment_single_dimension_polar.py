@@ -74,11 +74,12 @@ for rcK, rcV in mplRCParams.items():
 
 # folder_name = "Day12_PM"
 # blocks_list = [4]
-folder_name = "Day11_PM"
-blocks_list = [2, 3]
+# folder_name = "Day11_PM"
+# blocks_list = [2, 3]
 
-# folder_name = "Day8_AM"
+folder_name = "Day8_AM"
 # blocks_list = [1, 2, 3, 4]
+blocks_list = [4]
 
 data_path = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/3_Preprocessed_Data/{folder_name}")
 pdf_folder = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/5_Figures/{folder_name}")
@@ -88,7 +89,7 @@ if not os.path.exists(pdf_folder):
 this_emg_montage = emg_montages['lower_v2']
 blocks_list_str = '_'.join(f"{block_idx}" for block_idx in blocks_list)
 
-x_axis_name = 'amp'
+x_axis_name = 'freq_late'
 if x_axis_name == 'freq':
     pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_polar_recruitment_freq.pdf")
     left_sweep = 0
@@ -135,7 +136,7 @@ for block_idx in blocks_list:
         file_path,
         load_stim_info=True, force_trains=True,
         load_vicon=True, vicon_as_df=True,
-        load_ripple=True, ripple_variable_names=['NEV'], ripple_as_df=True
+        load_ripple=True, ripple_variable_names=['NEV', 'TimeCode'], ripple_as_df=True
     )
     if data_dict['vicon'] is not None:
         this_emg = data_dict['vicon']['EMG'].copy()
@@ -288,6 +289,7 @@ def polar_heatmapper(
     data_square = data.pivot(index=azimuth, columns=radius, values=z)
     min_radius, max_radius = np.min(data_square.columns), np.max(data_square.columns)
     data_square.columns = data_square.columns - min_radius + 0.25 * (max_radius - min_radius)
+    print(f'Radial offset: {- min_radius + 0.25 * (max_radius - min_radius)}')
     for row_idx, row in data_square.iterrows():
         row_T = row.to_frame().T
         upsampled_index = np.linspace(row_idx, row_idx + delta_deg, 10)

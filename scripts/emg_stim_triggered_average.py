@@ -33,6 +33,9 @@ from matplotlib import pyplot as plt
 
 snsRCParams = {
         'figure.dpi': useDPI, 'savefig.dpi': useDPI,
+    # change the line width for the legend
+    for line in g.legend.get_lines():
+        line.set_linewidth(4.0)
         'lines.linewidth': .5,
         'lines.markersize': 2.5,
         'patch.linewidth': .5,

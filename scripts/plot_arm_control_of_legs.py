@@ -78,7 +78,8 @@ mplRCParams = {
 sns.set(
     context='paper', style='white',
     palette='dark', font='sans-serif',
-    font_scale=1, color_codes=True, rc=snsRCParams)
+    font_scale=1, color_codes=True, rc=snsRCParams
+)
 for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
@@ -115,10 +116,14 @@ if standardize_emg:
         scaler = pickle.load(handle)
 
 file_path = data_path / f"Block{block_idx:0>4d}_Synced_Session_Data.mat"
+try:
+    this_kin_offset = kinematics_offsets[folder_name][block_idx]
+except:
+    this_kin_offset = 0
 data_dict = load_synced_mat(
     file_path,
     load_stim_info=True, split_trains=False,
-    load_vicon=True, vicon_as_df=True,
+    load_vicon=True, vicon_as_df=True, kinematics_time_offset=this_kin_offset,
     load_ripple=True, ripple_variable_names=['NEV'], ripple_as_df=True
     )
 
@@ -127,21 +132,18 @@ emg_df.rename(columns=this_emg_montage, inplace=True)
 emg_df.index.name = 'time_usec'
 emg_df.drop(['NA'], axis='columns', inplace=True)
 
-this_kin_offset = kinematics_offsets[folder_name][block_idx]
 points_df = data_dict['vicon']['Points']
-points_df.index += int(this_kin_offset)
+# points_df.index += int(this_kin_offset)
 label_mask = points_df.columns.get_level_values('label').str.contains('ForeArm')
 for extra_label in ['Elbow', 'Foot', 'UpperArm', 'Hip', 'Knee', 'Ankle']:
     label_mask = label_mask | points_df.columns.get_level_values('label').str.contains(extra_label)
 points_df = points_df.loc[:, label_mask].copy()
-points_df.interpolate(inplace=True)
-
 angles_dict = {
     'LeftElbow': ['LeftForeArm', 'LeftElbow', 'LeftUpperArm'],
     'RightElbow': ['RightForeArm', 'RightElbow', 'RightUpperArm'],
     'LeftKnee': ['LeftHip', 'LeftKnee', 'LeftAnkle'],
     'RightKnee': ['RightHip', 'RightKnee', 'RightAnkle'],
-}
+    }
 for angle_name, angle_labels in angles_dict.items():
     vec1 = (
             points_df.xs(angle_labels[0], axis='columns', level='label') -
@@ -239,14 +241,22 @@ vspan_limits = [
     ]
 ]
 # for day12_PM block 4:
-# stim_info_df.index[stim_info_df.index > 790000000]
+# stim_info_df.index[stim_info_df.index > 1170000000]
 # plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
-align_timestamps = [75139433, 797192233]
+align_timestamps = [1178794033, 797192233]
 vspan_limits = [
     # left
-    [],
+    [
+        (left_sweep * 1e-6, 5.47),
+        (5.47, 15.64),
+        (15.64, right_sweep * 1e-6)
+    ],
     # right
-    []
+    [
+        (left_sweep * 1e-6, 4.69),
+        (4.69, 11.96),
+        (11.96, right_sweep * 1e-6)
+    ]
 ]
 
 all_emg_dict = {}
@@ -313,34 +323,35 @@ aligned_emg_df = pd.concat(all_emg_dict, names=['timestamp_usec'] + metadata_fie
 aligned_stim_info = pd.concat(all_stim_dict, names=['timestamp_usec', 'amp', 'freq'])
 aligned_kin_df = pd.concat(all_kin_dict, names=['timestamp_usec'] + metadata_fields)
 
-# frequencies_each_config = {}
-# for name, group in stim_info_df.groupby('elecConfig_str'):
-#     unique_freqs = group['freq'].unique()
-#     assert unique_freqs.size == 1
-#     frequencies_each_config[name] = unique_freqs[0]
+frequencies_each_config = {}
+for name, group in stim_info_df.groupby('elecConfig_str'):
+    unique_freqs = group['freq'].unique()
+    assert unique_freqs.size == 1
+    frequencies_each_config[name] = unique_freqs[0]
 
 electrode_functional_names = {
     '-(3,)+(2,)': 'Left Flex.',
     '-(14,)+(6, 22)': 'Left Ext.',
     '-(27,)+(19,)': 'Right Flex.',
     '-(27,)+(26,)': 'Right Ext.',
-    '-(27,)+(28,)': '-(27,)+(28,)',
-    '-(136,)+(144,)': '-(136,)+(144,)',
-    '-(155,)+(147,)': '-(155,)+(147,)',
+    '-(27,)+(28,)': 'Right Flex.',
+    '-(136,)+(144,)': 'Left Ext.',  # '-(8,)+(16,)',
+    '-(155,)+(147,)': 'Right Ext.',  # '-(27,)+(19,)',
     '-(116,)+(152,)': '-(116,)+(152,)',
-    '-(139,)+(131,)': '-(139,)+(131,)',
-    '-(160,)+(152,)': '-(160,)+(152,)'
+    '-(139,)+(131,)': 'Left Flex.',  # '-(11,)+(3,)',
+    '-(160,)+(152,)': 'Right Ext',  # '-(32,)+(24,)',
+    '-(14, 136)+(6, 22)': '-(14, 136)+(6, 22)'
 }
 
 notable_electrode_labels = [
     '-(3,)+(2,)', '-(14,)+(6, 22)', '-(27,)+(19,)', '-(27,)+(26,)',
     '-(27,)+(28,)', '-(136,)+(144,)', '-(155,)+(147,)', '-(116,)+(152,)', '-(139,)+(131,)',
-    '-(160,)+(152,)'
+    '-(160,)+(152,)', '-(14, 136)+(6, 22)'
 ]
 # stim_palette = sns.color_palette('deep', n_colors=len(electrode_labels))
 stim_palette = [
     palettable.cartocolors.qualitative.Bold_10.mpl_colors[idx]
-    for idx in [2, 1, 0, 7, 3, 3, 3, 3, 3, 3]
+    for idx in [2, 1, 0, 0, 7, 3, 4, 9, 6, 8, 9]
 ]
 base_electrode_hue_map = {
     nm: c for nm, c in zip(notable_electrode_labels, stim_palette)
@@ -363,15 +374,25 @@ with PdfPages(pdf_path) as pdf:
     plot_stim_traces = aligned_stim_info.xs('amp', level='feature', drop_level=False, axis='columns').iloc[::emg_downsample, :].stack(level=['elecConfig_str', 'feature']).to_frame(name='signal').reset_index()
     plot_stim_traces.sort_values(by='elecConfig_str', key=elec_reorder_fun, inplace=True)
     plot_stim_traces.loc[:, 'time_sec'] = plot_stim_traces['time_usec'] * 1e-6
-    plot_stim_traces.loc[:, 'signal'] = plot_stim_traces['signal'] * 1e-3
+    plot_stim_traces.loc[:, 'signal'] = plot_stim_traces['signal'] * 1e-3 # convert to mA
+    ##
+    plot_stim_freq = aligned_stim_info.xs('freq', level='feature', drop_level=False, axis='columns').iloc[::emg_downsample, :].stack(level=['elecConfig_str', 'feature']).to_frame(name='signal').reset_index()
+    plot_stim_freq.sort_values(by='elecConfig_str', key=elec_reorder_fun, inplace=True)
+    plot_stim_freq.loc[:, 'time_sec'] = plot_stim_freq['time_usec'] * 1e-6
+    plot_stim_freq.loc[:, 'signal'] = plot_stim_freq['signal']
     ##
     # points_label_subset = [('LeftLimb', 'length'), ('RightLimb', 'length'), ('LeftElbow', 'angle'), ('RightElbow', 'angle')]
-    points_label_subset = [('LeftKnee', 'angle'), ('RightKnee', 'angle'), ('LeftElbow', 'angle'), ('RightElbow', 'angle')]
+    points_label_subset = [
+        # ('LeftKnee', 'angle'), ('RightKnee', 'angle'),
+        # ('LeftElbow', 'angle'), ('RightElbow', 'angle')
+        ('LeftAnkle', 'x'), ('RightAnkle', 'x'),
+        ('LeftAnkle', 'y'), ('RightAnkle', 'y'),
+        ('LeftAnkle', 'z'), ('RightAnkle', 'z'),
+    ]
     pretty_points_label_lookup = {
-        'LeftKnee': 'Left knee',
-        'RightKnee': 'Right knee',
-        'LeftElbow': 'Left elbow',
-        'RightElbow': 'Right elbow'
+        'LeftKnee': 'Left knee', 'RightKnee': 'Right knee',
+        'LeftElbow': 'Left elbow', 'RightElbow': 'Right elbow',
+        'LeftAnkle': 'Left ankle', 'RightAnkle': 'Right ankle'
     }
     plot_kin = aligned_kin_df.loc[:, points_label_subset].iloc[::kin_downsample, :].stack(level=['label', 'axis']).to_frame(name='signal').reset_index()
     plot_kin.loc[:, 'time_sec'] = plot_kin['time_usec'] * 1e-6
@@ -388,7 +409,7 @@ with PdfPages(pdf_path) as pdf:
     kin_ax[0].get_shared_y_axes().join(kin_ax[0], kin_ax[1])
     stim_ax = [fig.add_subplot(gs[1, 0], sharex=kin_ax[0]), fig.add_subplot(gs[1, 1], sharex=kin_ax[1])]
     stim_ax[0].get_shared_y_axes().join(stim_ax[0], stim_ax[1])
-    emg_ax = [fig.add_subplot(gs[2, 0], sharex=kin_ax[0]), fig.add_subplot(gs[2, 1], sharex=kin_ax[1])]
+    emg_ax = [fig.add_subplot(gs[3, 0], sharex=kin_ax[0]), fig.add_subplot(gs[3, 1], sharex=kin_ax[1])]
     emg_ax[0].get_shared_y_axes().join(emg_ax[0], emg_ax[1])
 
     this_emg_palette = [emg_hue_map[nm] for nm in emg_label_subset]
@@ -460,9 +481,8 @@ with PdfPages(pdf_path) as pdf:
     electrode_labels = plot_stim_traces['elecConfig_str'].unique().tolist()
     electrode_hue_map = {
         nm: base_electrode_hue_map[nm] for nm in electrode_labels
-    }
-    # pretty_electrode_labels = [f'{electrode_functional_names[cfg]} ({frequencies_each_config[cfg]} Hz)' for cfg in electrode_labels]
-    pretty_electrode_labels = [f'{electrode_functional_names[cfg]}' for cfg in electrode_labels]
+        }
+    pretty_electrode_labels = [f'{electrode_functional_names[cfg]} ({frequencies_each_config[cfg]} Hz)' for cfg in electrode_labels]
 
     sns.lineplot(
         data=plot_stim_traces.loc[left_mask_stim, :], ax=stim_ax[0],
@@ -474,21 +494,23 @@ with PdfPages(pdf_path) as pdf:
         x='time_sec', y='signal',
         hue='elecConfig_str', style='feature',
         palette=electrode_hue_map, legend=False)
-
-    custom_legend_lines = [dummy_legend_handle] + [
+    ##
+    all_custom_stim_legend_lines = [
         Line2D([0], [0], color=electrode_hue_map[nm], lw=2)
         for idx, nm in enumerate(electrode_labels)
     ]
+    custom_legend_lines = [dummy_legend_handle, dummy_legend_handle] + all_custom_stim_legend_lines[:4] + [dummy_legend_handle] + all_custom_stim_legend_lines[4:]
     stim_ax[1].legend(
         custom_legend_lines,
-        ['Stim. electrode\nconfiguration'] + pretty_electrode_labels,
+        ['Stim. electrode\nconfiguration', 'Caudal'] + pretty_electrode_labels[:4] + ['Rostral'] + pretty_electrode_labels[4:],
         loc='center left', bbox_to_anchor=(1.025, .5), borderaxespad=0.)
     for this_ax in stim_ax:
         plt.setp(this_ax.get_xticklabels(), visible=False)
 
-    stim_ax[1].set_yticks([])
-    stim_ax[1].set_ylabel(None)
+    stim_ax[1].set_yticklabels([])
+    stim_ax[1].set_ylabel('')
     stim_ax[0].set_ylabel('Stim.\namplitude\n(mA)')
+    ##
 
     kinematics_labels = plot_kin['label'].unique().tolist()
     kin_palette = sns.color_palette('dark', n_colors=len(kinematics_labels))
