@@ -108,9 +108,13 @@ video_info = {
             'rollovers': [False]
         },
         2: {
-            'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4'],
-            'start_timestamps': ['23:05:24:14'],
-            'rollovers': [False]
+            'paths': [
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
+            ],
+            'start_timestamps': ['23:05:24:14', '23:05:56:19', '23:05:19:24'],
+            'rollovers': [False, False, False]
         },
         4: {
             'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4'],

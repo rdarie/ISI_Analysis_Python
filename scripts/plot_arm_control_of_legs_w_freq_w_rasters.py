@@ -12,8 +12,8 @@ else:
 
 import palettable
 import traceback
-from isicpy.utils import load_synced_mat, makeFilterCoeffsSOS
-from isicpy.lookup_tables import emg_montages, kinematics_offsets, muscle_names, emg_palette, emg_hue_map
+from isicpy.utils import load_synced_mat, makeFilterCoeffsSOS, timestring_to_timestamp
+from isicpy.lookup_tables import emg_montages, kinematics_offsets, muscle_names, emg_palette, emg_hue_map, video_info
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -89,10 +89,10 @@ for rcK, rcV in mplRCParams.items():
 plots_dt = int(2e3)  # usec
 # folder_name = "Day8_AM"
 # block_idx = 4
-folder_name = "Day12_PM"
-block_idx = 4
-# folder_name = "Day11_AM"
-# block_idx = 2
+# folder_name = "Day12_PM"
+# block_idx = 4
+folder_name = "Day11_AM"
+block_idx = 2
 
 angles_dict = {
     'LeftElbow': ['LeftForeArm', 'LeftElbow', 'LeftUpperArm'],
@@ -110,22 +110,6 @@ pdf_folder = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/5_
 if not os.path.exists(pdf_folder):
     os.makedirs(pdf_folder)
 pdf_path = pdf_folder / Path(f"Block_{block_idx}_arm_ctrl_legs_freq_rasters.pdf")
-
-audible_timing_path = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_audible_timings.txt")
-audible_timing = pd.read_csv(audible_timing_path)
-audible_timing = audible_timing.stack().reset_index().iloc[:, 1:]
-audible_timing.columns = ['words', 'time']
-audible_timing.loc[:, ['m', 's', 'f']] = audible_timing['time'].apply(lambda x: x.split(':')).apply(pd.Series).to_numpy()
-
-def int_or_nan(x):
-    try:
-        return int(x)
-    except:
-        return np.nan
-
-audible_timing.loc[:, ['m', 's', 'f']] = audible_timing.loc[:, ['m', 's', 'f']].applymap(int_or_nan)
-total_frames = audible_timing['m'] * 60 * 30 + audible_timing['s'] * 30 + audible_timing['f']
-video_t = total_frames.apply(lambda x: pd.Timedelta(x / 29.97, unit='sec'))
 
 filterOpts = {
     'low': {
@@ -311,18 +295,12 @@ vspan_limits = [
 # stim_info_df.index[stim_info_df.index > 790000000]
 # stim_info_df.index[stim_info_df.index > 76000000]
 # plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
-
+'''
 include_verbal_ax = False
 legend_halfway_idx = 2
 emg_label_subset = ['LVL', 'LMH', 'LMG', 'RLVL', 'RMH', 'RMG']
 only_these_electrodes = ["-(14,)+(6, 22)", "-(3,)+(2,)", "-(139,)+(131,)", "-(136,)+(144,)"]
 align_timestamps = [76021433, 797192233]
-control_label_subset = [
-    ('LeftElbow', 'angle'), ('RightElbow', 'angle'),
-]
-outcome_label_subset = [
-    ('LeftKnee', 'angle'), ('RightKnee', 'angle'),
-]
 which_outcome = 'angle'
 control_label_subset = [
     ('LeftElbow', 'angle'), ('RightElbow', 'angle'),
@@ -347,12 +325,12 @@ vspan_limits = [
         (11.96, right_sweep * 1e-6)
     ]
 ]
-
+'''
 # for day11_AM block 2:
 # stim_info_df.index[stim_info_df.index > 370000000]
 # stim_info_df.index[stim_info_df.index > xxx]
 # plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
-'''
+
 include_verbal_ax = True
 legend_halfway_idx = 4
 emg_label_subset = ['LVL', 'LMH', 'LTA', 'LMG', 'RLVL', 'RMH', 'RTA', 'RMG']
@@ -381,7 +359,31 @@ vspan_limits = [
         (5, right_sweep * 1e-6)
     ]
 ]
-'''
+
+def int_or_nan(x):
+    try:
+        return int(x)
+    except:
+        return np.nan
+
+fps = 29.97
+audible_timing_path = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_audible_timings.txt")
+audible_timing = pd.read_csv(audible_timing_path)
+audible_timing = audible_timing.stack().reset_index().iloc[:, 1:]
+audible_timing.columns = ['words', 'time']
+audible_timing.loc[:, ['m', 's', 'f']] = audible_timing['time'].apply(lambda x: x.split(':')).apply(pd.Series).to_numpy()
+audible_timing.loc[:, ['m', 's', 'f']] = audible_timing.loc[:, ['m', 's', 'f']].applymap(int_or_nan)
+total_frames = audible_timing['m'] * 60 * 30 + audible_timing['s'] * 30 + audible_timing['f']
+# video_t = total_frames.apply(lambda x: pd.Timedelta(x / 29.97, unit='sec'))
+# audible_timing.loc[:, 'timestamp'] = pd.Timestamp(year=2022, month=10, day=31) + video_t
+
+first_ripple = data_dict['ripple']['TimeCode'].iloc[0, :]
+ripple_origin_timestamp = timestring_to_timestamp(first_ripple['TimeString'], fps=fps, timecode_type='NDF')
+video_origin_timecode = video_info[folder_name][block_idx]['start_timestamps'][0]
+video_origin_timestamp = timestring_to_timestamp(video_origin_timecode, fps=fps, timecode_type='NDF')
+ripple_to_video = (ripple_origin_timestamp - video_origin_timestamp).total_seconds()
+audible_timing.loc[:, 'time'] = first_ripple['PacketTime'] - ripple_to_video + total_frames / fps
+
 vspan_palette = palettable.colorbrewer.qualitative.Pastel2_3.mpl_colors
 vspan_colors = [
     # left

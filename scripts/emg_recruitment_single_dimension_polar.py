@@ -295,11 +295,6 @@ def polar_heatmapper(
         upsampled_index = np.linspace(row_idx, row_idx + delta_deg, 10)
         sub_square = pd.concat([row_T for ii in upsampled_index], ignore_index=True)
         sub_square.index = upsampled_index
-        '''
-        row_T_offset = row_T.copy()
-        row_T_offset.index = row_T_offset.index + delta_deg
-        sub_square = pd.concat([row_T, row_T_offset])
-        '''
         ra, th = np.meshgrid(sub_square.columns, sub_square.index)
         this_ax.pcolormesh(th, ra, sub_square, **colormesh_kwargs)
 
@@ -307,12 +302,8 @@ def polar_heatmapper(
     this_ax.plot(max_locations.index + delta_deg / 2, max_locations.to_numpy(), 'g+')
     this_ax.plot([0, 0], [data_square.columns[0], data_square.columns[-1]], 'r-')
 
-    # print('\n'.join(dir(this_ax)))
-    # print('\n'.join([xtl.get_text() for xtl in this_ax.get_xticklabels()]))
-
     this_ax.set_xticks(data_square.index + delta_deg / 2)
     this_ax.set_xticklabels(label_subset)
-    # this_ax.set_yticks([])
     return
 
 
@@ -348,23 +339,17 @@ with PdfPages(pdf_path) as pdf:
         sharex=False,
         despine=False, subplot_kws=dict(projection='polar')
         )
-    # this_colormap = sns.cubehelix_palette(
-    #     start=.1, rot=.8, dark=.2, light=.8,
-    #     as_cmap=True, reverse=True)
     if x_axis_name in ['freq', 'freq_late']:
         this_colormap = sns.cubehelix_palette(
             start=0, rot=.4, dark=.2, light=.8,
             gamma=.75,
             as_cmap=True, reverse=True)
-        # this_colormap = sns.color_palette("light:b_r", as_cmap=True)
     elif x_axis_name == 'amp':
         this_colormap = sns.cubehelix_palette(
             start=1.5, rot=.4, dark=.2, light=.8,
             gamma=.75,
             as_cmap=True, reverse=True)
-        # this_colormap = sns.color_palette("light:g_r", as_cmap=True)
 
-    # this_colormap = sns.color_palette('flare_r', as_cmap=True)
     colormesh_kws = dict(
         cmap=this_colormap,
         vmin=plot_auc.loc[plot_mask, 'signal'].min(),
@@ -382,9 +367,7 @@ with PdfPages(pdf_path) as pdf:
             colormesh_kwargs=colormesh_kws,
             label_key=label_subset, delta_deg=delta_deg)
     g.set_titles(template="{col_name}")
-    # g.set_titles(template="{col_name}\n({row_name})")
     g.figure.suptitle(f'AUC vs {x_axis_name}')
-
     pdf.savefig(bbox_inches='tight', pad_inches=0)
     if show_plots:
         plt.show()
