@@ -1,3 +1,4 @@
+
 import os
 from isicpy.utils import load_synced_mat, closestSeries
 from isicpy.lookup_tables import emg_montages
@@ -13,18 +14,24 @@ import cloudpickle as pickle
 from sklearn.preprocessing import StandardScaler
 
 this_emg_montage = emg_montages['lower']
-# folder_name = "Day12_PM"
-# blocks_list = [3, 4]
-folder_name = "Day11_PM"
+# folder_name = "Day1_AM"
+# blocks_list = [2, 3]
+# folder_name = "Day2_AM"
+# blocks_list = [3]
+# folder_name = "Day11_PM"
+# blocks_list = [2, 3]
+# folder_name = "Day11_AM"
+# blocks_list = [4]
+folder_name = "Day12_AM"
 blocks_list = [2, 3]
 # folder_name = "Day8_AM"
 # blocks_list = [1, 2, 3, 4]
 
-data_path = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/3_Preprocessed_Data/{folder_name}")
+data_path = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
 html_folder = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/5_Figures/{folder_name}")
 html_path = html_folder / "stim_summary.html"
 
-this_emg_montage = emg_montages['lower_v2']
+this_emg_montage = emg_montages['lower']
 all_stim_info = {}
 for block_idx in tqdm(blocks_list):
     file_path = data_path / f"Block{block_idx:0>4d}_Synced_Session_Data.mat"

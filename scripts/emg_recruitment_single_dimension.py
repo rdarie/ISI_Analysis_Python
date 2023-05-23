@@ -76,23 +76,26 @@ sns.set(
 for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
-
+# folder_name = "Day2_AM"
+# blocks_list = [3]
+# this_emg_montage = emg_montages['lower']
 # folder_name = "Day12_PM"
 # blocks_list = [4]
 folder_name = "Day11_PM"
 blocks_list = [2, 3]
+this_emg_montage = emg_montages['lower_v2']
 # folder_name = "Day8_AM"
 # blocks_list = [1, 2, 3, 4]
 
-data_path = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/3_Preprocessed_Data/{folder_name}")
+
+data_path = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
 pdf_folder = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/5_Figures/{folder_name}")
 if not os.path.exists(pdf_folder):
     os.makedirs(pdf_folder)
 
-this_emg_montage = emg_montages['lower_v2']
 blocks_list_str = '_'.join(f"{block_idx}" for block_idx in blocks_list)
 
-x_axis_name = 'amp'
+x_axis_name = 'freq_late'
 if x_axis_name == 'freq':
     pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_recruitment_freq.pdf")
     left_sweep = 0
@@ -106,81 +109,113 @@ elif x_axis_name == 'freq_late':
 elif x_axis_name == 'amp':
     pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_recruitment_amp.pdf")
     left_sweep = 0
-    right_sweep = int(0.1 * 1e6)
+    right_sweep = int(0.075 * 1e6)
     freq_cutoff = 10
 
-verbose = 0
-standardize_emg = True
-normalize_across = False
+filterOptsNotch = {
+    'line_noise': {
+        'Wn': 60.,
+        'nHarmonics': 1,
+        'Q': 35,
+        'N': 4,
+        'btype': 'bandstop',
+        'ftype': 'butter'
+    },
+}
 
-if standardize_emg:
-    emg_scaler_path = data_path / "pickles" / "emg_scaler.p"
-    with open(emg_scaler_path, 'rb') as handle:
-        scaler = pickle.load(handle)
-
-'''filterOpts = {
+filterOptsPost = {
     'low': {
-        'Wn': 500.,
+        'Wn': 100.,
         'N': 4,
         'btype': 'low',
         'ftype': 'butter'
     },
-}'''
+}
+
+verbose = 2
+standardize_emg = True
+normalize_across = False
 
 all_stim_info = {}
 all_aligned_emg = {}
 
+parquet_folder = data_path / "parquets"
+reprocess_raw = False
+save_parquets = True
+
 for block_idx in blocks_list:
+    emg_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_emg_df.parquet"
+    stim_info_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_stim_info_df.parquet"
     file_path = data_path / f"Block{block_idx:0>4d}_Synced_Session_Data.mat"
-    data_dict = load_synced_mat(
-        file_path,
-        load_stim_info=True,
-        load_vicon=True, vicon_as_df=True,
-        load_ripple=True, ripple_variable_names=['NEV'], ripple_as_df=True
-    )
-    if data_dict['vicon'] is not None:
-        this_emg = data_dict['vicon']['EMG'].copy()
-        this_emg.rename(columns=this_emg_montage, inplace=True)
-        this_emg.drop(columns=['NA'], inplace=True)
-    if data_dict['stim_info'] is not None:
-        all_stim_info[block_idx] = data_dict['stim_info']
-        align_timestamps = all_stim_info[block_idx].index.get_level_values('timestamp_usec')
-        aligned_dfs = {}
-        analog_time_vector = np.asarray(this_emg.index)
-        nominal_dt = np.int64(np.median(np.diff(analog_time_vector)))
-        emg_sample_rate = np.round((nominal_dt * 1e-6) ** -1)
-        epoch_t = np.arange(left_sweep, right_sweep, nominal_dt)
-        nominal_num_samp = epoch_t.shape[0]
+    if (not os.path.exists(emg_parquet_path)) or reprocess_raw:
+        data_dict = load_synced_mat(
+            file_path,
+            load_stim_info=True, split_trains=True, stim_info_traces=False, force_trains=True,
+            load_vicon=True, vicon_as_df=True,
+            load_ripple=True, ripple_variable_names=['NEV'], ripple_as_df=True,
+        )
+        if data_dict['vicon'] is not None:
+            this_emg = data_dict['vicon']['EMG'].copy()
+            this_emg.rename(columns=this_emg_montage, inplace=True)
+            this_emg.drop(columns=['NA'], inplace=True)
+        if data_dict['stim_info'] is not None:
+            all_stim_info[block_idx] = data_dict['stim_info']
 
-        if standardize_emg:
-            this_emg.loc[:, :] = scaler.transform(this_emg)
+            if save_parquets:
+                if not os.path.exists(parquet_folder):
+                    os.makedirs(parquet_folder)
+                this_emg.to_parquet(emg_parquet_path)
+                all_stim_info[block_idx].to_parquet(stim_info_parquet_path)
+    else:
+        this_emg = pd.read_parquet(emg_parquet_path)
+        all_stim_info[block_idx] = pd.read_parquet(stim_info_parquet_path)
 
-        '''
-        filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
+    if standardize_emg:
+        emg_scaler_path = data_path / "pickles" / "emg_scaler.p"
+        with open(emg_scaler_path, 'rb') as handle:
+            scaler = pickle.load(handle)
+        this_emg.loc[:, :] = scaler.transform(this_emg)
+
+    align_timestamps = all_stim_info[block_idx].index.get_level_values('timestamp_usec')
+    aligned_dfs = {}
+    analog_time_vector = np.asarray(this_emg.index)
+    nominal_dt = np.int64(np.median(np.diff(analog_time_vector)))
+    emg_sample_rate = np.round((nominal_dt * 1e-6) ** -1)
+    epoch_t = np.arange(left_sweep, right_sweep, nominal_dt)
+    nominal_num_samp = epoch_t.shape[0]
+
+    filterCoeffsNotch = makeFilterCoeffsSOS(filterOptsNotch.copy(), emg_sample_rate)
+    this_emg = pd.DataFrame(
+        signal.sosfiltfilt(filterCoeffsNotch, this_emg, axis=0),
+        index=this_emg.index, columns=this_emg.columns)
+
+    if len(filterOptsPost):
+        filterCoeffsPost = makeFilterCoeffsSOS(filterOptsPost.copy(), emg_sample_rate)
         this_emg = pd.DataFrame(
-            signal.sosfiltfilt(filterCoeffs, (this_emg - this_emg.mean()).abs(), axis=0),
+            signal.sosfiltfilt(filterCoeffsPost, (this_emg - this_emg.mean()).abs(), axis=0),
             index=this_emg.index, columns=this_emg.columns)
-            '''
+    else:
         this_emg = (this_emg - this_emg.mean()).abs()
-        print(f'Epoching EMG from \n\t{file_path}')
-        for timestamp in tqdm(align_timestamps.to_numpy()):
-            this_mask = (analog_time_vector >= timestamp + left_sweep) & (analog_time_vector <= timestamp + right_sweep)
-            sweep_offset = 0
-            while this_mask.sum() != nominal_num_samp:
-                # fix malformed epochs caused by floating point comparison errors
-                if this_mask.sum() > nominal_num_samp:
-                    sweep_offset -= nominal_dt
-                else:
-                    sweep_offset += nominal_dt
-                if verbose > 1:
-                    print(f'sweep offset set to {sweep_offset}')
-                this_mask = (analog_time_vector >= timestamp + left_sweep - nominal_dt / 2) & (analog_time_vector < timestamp + right_sweep + sweep_offset + nominal_dt / 2)
-                if verbose > 1:
-                    print(f'this_mask.sum() = {this_mask.sum()}')
-            aligned_dfs[timestamp] = pd.DataFrame(
-                this_emg.loc[this_mask, :].to_numpy(),
-                index=epoch_t, columns=this_emg.columns)
-        all_aligned_emg[block_idx] = pd.concat(aligned_dfs, names=['timestamp_usec', 'time_usec'])
+
+    print(f'Epoching EMG from \n\t{file_path}')
+    for timestamp in tqdm(align_timestamps.to_numpy()):
+        this_mask = (analog_time_vector >= timestamp + left_sweep) & (analog_time_vector <= timestamp + right_sweep)
+        sweep_offset = 0
+        while this_mask.sum() != nominal_num_samp:
+            # fix malformed epochs caused by floating point comparison errors
+            if this_mask.sum() > nominal_num_samp:
+                sweep_offset -= nominal_dt
+            else:
+                sweep_offset += nominal_dt
+            if verbose > 1:
+                print(f'sweep offset set to {sweep_offset}')
+            this_mask = (analog_time_vector >= timestamp + left_sweep - nominal_dt / 2) & (analog_time_vector < timestamp + right_sweep + sweep_offset + nominal_dt / 2)
+            if verbose > 1:
+                print(f'this_mask.sum() = {this_mask.sum()}')
+        aligned_dfs[timestamp] = pd.DataFrame(
+            this_emg.loc[this_mask, :].to_numpy(),
+            index=epoch_t, columns=this_emg.columns)
+    all_aligned_emg[block_idx] = pd.concat(aligned_dfs, names=['timestamp_usec', 'time_usec'])
 
 stim_info_df = pd.concat(all_stim_info, names=['block', 'timestamp_usec'])
 stim_info_df.loc[:, 'elecConfig_str'] = stim_info_df.apply(lambda x: f'-{x["elecCath"]}+{x["elecAno"]}', axis='columns')
@@ -231,7 +266,7 @@ emg_df.index = pd.MultiIndex.from_frame(emg_metadata)
 #### outlier removal
 auc_per_trial = emg_df.groupby(['block', 'timestamp_usec']).mean()
 auc_bar, auc_std = np.mean(auc_per_trial.to_numpy().flatten()), np.std(auc_per_trial.to_numpy().flatten())
-n_std = 6
+n_std = 9
 outlier_bounds = (auc_bar - n_std * auc_std, auc_bar + n_std * auc_std)
 outlier_mask_per_trial = (auc_per_trial < outlier_bounds[0]) | (auc_per_trial > outlier_bounds[1])
 outlier_mask_per_trial = outlier_mask_per_trial.any(axis='columns')
@@ -250,7 +285,6 @@ elif x_axis_name == 'amp':
     emg_df = emg_df.loc[emg_df.index.get_level_values('freq') <= freq_cutoff, :]
 
 #
-
 auc_df = emg_df.groupby(recruitment_keys + ['block', 'timestamp_usec']).mean()
 # temp_average_auc = auc_df.groupby(recruitment_keys).mean()
 
@@ -266,19 +300,22 @@ else:
 average_auc_df = auc_df.groupby(recruitment_keys).mean()
 temp_average_auc = auc_df.groupby(recruitment_keys).mean()
 
-delta_auc_dict = {}
-for elec_a, elec_b in electrode_pairs:
-    auc_a = average_auc_df.xs(elec_a, axis='index', level='elecConfig_str')
-    auc_b = average_auc_df.xs(elec_b, axis='index', level='elecConfig_str')
-    delta_auc_dict[elec_a] = auc_a - auc_b
 
-delta_auc_df = pd.concat(delta_auc_dict, names=['elecConfig_str'])
+should_plot_delta_auc = False
+if should_plot_delta_auc:
+    delta_auc_dict = {}
+    for elec_a, elec_b in electrode_pairs:
+        auc_a = average_auc_df.xs(elec_a, axis='index', level='elecConfig_str')
+        auc_b = average_auc_df.xs(elec_b, axis='index', level='elecConfig_str')
+        delta_auc_dict[elec_a] = auc_a - auc_b
+    delta_auc_df = pd.concat(delta_auc_dict, names=['elecConfig_str'])
 
-determine_side = lambda x: 'Left' if x[0] == 'L' else 'Right'
-
-auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
-average_auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
-delta_auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
+determine_side = lambda x: 'L.' if x[0] == 'L' else 'R.'
+if folder_name == 'Day11_PM':
+    auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
+    average_auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
+    if should_plot_delta_auc:
+        delta_auc_df.sort_index(level='elecConfig_str', key=reorder_fun, inplace=True)
 
 show_plots = False
 with PdfPages(pdf_path) as pdf:
@@ -288,10 +325,10 @@ with PdfPages(pdf_path) as pdf:
 
     plot_auc.loc[:, 'parent_elecConfig'] = plot_auc['elecConfig_str'].map(parent_elec_configurations)
     plot_auc.loc[:, 'elec_orientation'] = plot_auc['elecConfig_str'].map(orientation_types)
-
-    plot_delta_auc = delta_auc_df.stack().to_frame(name='signal').reset_index()
-    plot_delta_auc.loc[:, 'side'] = plot_delta_auc['label'].apply(determine_side)
-    plot_delta_auc.loc[:, 'muscle'] = plot_delta_auc['label'].map(muscle_names)
+    if should_plot_delta_auc:
+        plot_delta_auc = delta_auc_df.stack().to_frame(name='signal').reset_index()
+        plot_delta_auc.loc[:, 'side'] = plot_delta_auc['label'].apply(determine_side)
+        plot_delta_auc.loc[:, 'muscle'] = plot_delta_auc['label'].map(muscle_names)
     ###
     elec_subset = plot_auc['elecConfig_str'].unique().tolist()  #  ['-(2,)+(3,)', '-(3,)+(2,)',]
     label_subset = ['LVL', 'LMH', 'LTA', 'LMG', 'LSOL', 'RLVL', 'RMH', 'RTA', 'RMG', 'RSOL']  #  plot_auc['label'].unique().tolist()
@@ -326,8 +363,6 @@ with PdfPages(pdf_path) as pdf:
         plt.show()
     else:
         plt.close()
-
-
     if x_axis_name in ['freq', 'freq_late']:
         g = sns.relplot(
             data=plot_auc.loc[plot_mask, :],
@@ -355,31 +390,29 @@ with PdfPages(pdf_path) as pdf:
         plt.close()
     #####
     #####
-    elec_mask_delta = plot_auc['elecConfig_str'].isin(elec_subset)
-    label_mask_delta = plot_auc['label'].isin(label_subset)
-    plot_mask_delta = elec_mask_delta & label_mask_delta
-
-
-    if x_axis_name in ['freq', 'freq_late']:
-        g = sns.relplot(
-            data=plot_delta_auc.loc[plot_mask_delta, :],
-            row='elecConfig_str', col='side',
-            hue='muscle',
-            x='freq', y='signal', kind='line',
-            errorbar=None, linewidth=2
-        )
-    elif x_axis_name == 'amp':
-        g = sns.relplot(
-            data=plot_delta_auc.loc[plot_mask_delta, :],
-            row='elecConfig_str', col='side',
-            hue='muscle',
-            x='amp', y='signal', kind='line',
-            errorbar=None, linewidth=2
-        )
-    g.figure.suptitle('delta AUC from dipole rotation')
-    pdf.savefig(bbox_inches='tight', pad_inches=0)
-
-    if show_plots:
-        plt.show()
-    else:
-        plt.close()
+    if should_plot_delta_auc:
+        elec_mask_delta = plot_auc['elecConfig_str'].isin(elec_subset)
+        label_mask_delta = plot_auc['label'].isin(label_subset)
+        plot_mask_delta = elec_mask_delta & label_mask_delta
+        if x_axis_name in ['freq', 'freq_late']:
+            g = sns.relplot(
+                data=plot_delta_auc.loc[plot_mask_delta, :],
+                row='elecConfig_str', col='side',
+                hue='muscle',
+                x='freq', y='signal', kind='line',
+                errorbar=None, linewidth=2
+            )
+        elif x_axis_name == 'amp':
+            g = sns.relplot(
+                data=plot_delta_auc.loc[plot_mask_delta, :],
+                row='elecConfig_str', col='side',
+                hue='muscle',
+                x='amp', y='signal', kind='line',
+                errorbar=None, linewidth=2
+            )
+        g.figure.suptitle('delta AUC from dipole rotation')
+        pdf.savefig(bbox_inches='tight', pad_inches=0)
+        if show_plots:
+            plt.show()
+        else:
+            plt.close()

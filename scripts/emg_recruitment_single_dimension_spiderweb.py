@@ -27,11 +27,12 @@ font_zoom_factor = 1.
 
 import seaborn as sns
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
 
 snsRCParams = {
         'figure.dpi': useDPI, 'savefig.dpi': useDPI,
         'lines.linewidth': .5,
-        'lines.markersize': 2.5,
+        'lines.markersize': 1.5,
         'patch.linewidth': .5,
         "axes.spines.left": True,
         "axes.spines.bottom": True,
@@ -134,23 +135,23 @@ if not os.path.exists(pdf_folder):
 
 blocks_list_str = '_'.join(f"{block_idx}" for block_idx in blocks_list)
 
-x_axis_name = 'freq_late'
+x_axis_name = 'amp'
 if x_axis_name == 'freq':
-    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_polar_recruitment_freq.pdf")
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_spiderweb_recruitment_freq.pdf")
     left_sweep = 0
     right_sweep = int(0.4 * 1e6)
     amp_cutoff = 9e3
     recruitment_keys = ['elecConfig_str', 'freq']
     max_marker_color = 'm'
 elif x_axis_name == 'freq_late':
-    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_polar_recruitment_freq_late.pdf")
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_spiderweb_recruitment_freq_late.pdf")
     left_sweep = int(0.1 * 1e6)
     right_sweep = int(0.4 * 1e6)
     amp_cutoff = 10e3
     recruitment_keys = ['elecConfig_str', 'freq']
     max_marker_color = 'm'
 elif x_axis_name == 'amp':
-    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_polar_recruitment_amp.pdf")
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_spiderweb_recruitment_amp.pdf")
     left_sweep = 0
     right_sweep = int(0.1 * 1e6)
     freq_cutoff = 10
@@ -340,38 +341,41 @@ if should_plot_delta_auc:
 
 
 determine_side = lambda x: 'Left' if x[0] == 'L' else 'Right'
-def polar_heatmapper(
+def polar_webmapper(
         data=None,
-        azimuth='label_as_degree', radius='amp', z='signal',
-        label_key=[], delta_deg=None, colormesh_kwargs={},
-        color=None):
+        azimuth='label_as_degree', radius='signal', hue='amp',
+        color_map=None, color_norm=None,
+        marker_at_max=True, delta_deg=None, color=None):
     this_ax = plt.gca()
-    data_square = data.pivot(index=azimuth, columns=radius, values=z)
-    min_radius, max_radius = np.min(data_square.columns), np.max(data_square.columns)
-    radial_offset = - min_radius + 0.25 * (max_radius - min_radius)
-    data_square.columns = data_square.columns + radial_offset
-    print(f'Scale bar spans from {data_square.columns.min() - radial_offset} to {data_square.columns.max() - radial_offset}')
-    for row_idx, row in data_square.iterrows():
-        row_T = row.to_frame().T
-        upsampled_index = np.linspace(row_idx, row_idx + delta_deg, 10)
-        sub_square = pd.concat([row_T for ii in upsampled_index], ignore_index=True)
-        sub_square.index = upsampled_index
-        ra, th = np.meshgrid(sub_square.columns, sub_square.index)
-        this_ax.pcolormesh(th, ra, sub_square, **colormesh_kwargs)
+    plot_data = data.sort_values(azimuth)
+    new_x_ticks = None
+    for name, group in plot_data.groupby(hue):
+        plot_vec = group.set_index(azimuth)[radius]
+        az = (plot_vec.index + delta_deg / 2).to_list()
+        r = plot_vec.to_list()
+        if new_x_ticks is None:
+            new_x_ticks = az.copy()
+            new_x_labels = group['label'].to_list()
+        ## wrap around
+        az.append(az[0])
+        r.append(r[0])
+        this_ax.plot(az, r, color=color_map(color_norm(name)))
+    # pdb.set_trace()
+    if marker_at_max:
+        for this_deg, group in plot_data.groupby(azimuth):
+            hue_of_max = group.set_index(hue)[radius].idxmax()
+            this_ax.plot(
+                this_deg + delta_deg / 2, group[radius].max(), '+',
+                color=this_colormap(this_color_norm(hue_of_max)), zorder=6, )
 
-    max_locations = data_square.abs().T.idxmax()
-    this_ax.plot(max_locations.index + delta_deg / 2, max_locations.to_numpy(), '+', color=max_marker_color, zorder=6)
-    this_ax.plot([0, 0], [data_square.columns[0], data_square.columns[-1]], 'r-')
-
-    this_ax.set_xticks(data_square.index + delta_deg / 2)
-    this_ax.set_xticklabels(label_subset)
-    this_ax.set_yticklabels([])
+    this_ax.set_xticks(new_x_ticks)
+    this_ax.set_xticklabels(new_x_labels)
+    this_ax.set_yticks([])
+    # this_ax.set_yticklabels([])
     this_ax.tick_params(pad=snsRCParams['axes.labelpad'])
-    # this_ax.set_thetagrids(data_square.index + delta_deg / 2, frac=1.1)
-    # pdb.set_trace() # print('\n'.join(dir(this_ax))
     return
 
-show_plots = False
+show_plots = True
 with PdfPages(pdf_path) as pdf:
     plot_auc = average_auc_df.stack().to_frame(name='signal').reset_index()
     if should_plot_delta_auc:
@@ -386,10 +390,11 @@ with PdfPages(pdf_path) as pdf:
     # label_subset = ['LVL', 'LMH', 'LTA', 'LMG', 'LSOL', 'RLVL', 'RMH', 'RTA', 'RMG', 'RSOL']  #  plot_auc['label'].unique().tolist()
     label_subset = ['RLVL', 'RMH', 'LMH', 'LVL', 'LTA', 'LMG', 'LSOL', 'RSOL', 'RMG', 'RTA', ]  # ordered for polar plot
     ###
+    if x_axis_name == 'amp':
+        plot_auc.loc[:, 'amp_mA'] = plot_auc['amp'] / 1e3
     elec_mask = plot_auc['elecConfig_str'].isin(elec_subset)
     label_mask = plot_auc['label'].isin(label_subset)
     plot_mask = elec_mask & label_mask
-
     delta_deg = 2 * np.pi / len(label_subset)
     labels_to_degrees = np.arange(delta_deg / 2, 2 * np.pi + delta_deg / 2, delta_deg)
     polar_map = {name: degree for name, degree in zip(label_subset, labels_to_degrees)}
@@ -407,47 +412,57 @@ with PdfPages(pdf_path) as pdf:
     if x_axis_name in ['freq', 'freq_late']:
         this_colormap = sns.cubehelix_palette(
             start=0, rot=.4, dark=.2, light=.8,
-            gamma=.75,
-            as_cmap=True, reverse=True)
+            gamma=.75, as_cmap=True, reverse=True)
+        x_axis_pretty_name = 'Stim.\nfreq. (Hz)'
+        this_color_norm = plt.Normalize(
+            vmin=plot_auc.loc[plot_mask, 'freq'].min() - 1e-6,
+            vmax=plot_auc.loc[plot_mask, 'freq'].max() + 1e-6)
+        g.map_dataframe(
+            polar_webmapper, hue='freq',
+            color_map=this_colormap, color_norm=this_color_norm,
+            delta_deg=delta_deg)
+        legend_hues = [7, 25, 50, 75, 100]
+        legend_hues_normed = [this_color_norm(xx) for xx in legend_hues]
+        custom_legend_text = [x_axis_pretty_name] + [
+            f'{xx:.3g}' for xx in legend_hues
+        ]
     elif x_axis_name == 'amp':
         this_colormap = sns.cubehelix_palette(
             start=1.5, rot=.4, dark=.2, light=.8,
-            gamma=.75,
-            as_cmap=True, reverse=True)
+            gamma=.75, as_cmap=True, reverse=True)
+        # this_color_norm = plt.Normalize(
+        #     vmin=plot_auc.loc[plot_mask, 'amp_mA'].min() - 1e-6,
+        #     vmax=plot_auc.loc[plot_mask, 'amp_mA'].max() + 1e-6)
+        this_color_norm = plt.Normalize(
+            vmin=6, vmax=11)
+        x_axis_pretty_name = 'Stim.\namp. (mA)'
+        g.map_dataframe(
+            polar_webmapper, hue='amp_mA',
+            color_map=this_colormap, color_norm=this_color_norm,
+            delta_deg=delta_deg)
+        # num_legend_lines = 5
+        # legend_hues_normed = np.linspace(0, 1, num_legend_lines)
+        # legend_hues = [this_color_norm.inverse(xx) for xx in legend_hues_normed]
+        legend_hues = [6, 8.5, 11]
+        legend_hues_normed = [this_color_norm(xx) for xx in legend_hues]
+        custom_legend_text = [x_axis_pretty_name] + [
+            f'{xx:.2g}' for xx in legend_hues
+        ]
 
-    colormesh_kws = dict(
-        cmap=this_colormap,
-        vmin=plot_auc.loc[plot_mask, 'signal'].min(),
-        vmax=plot_auc.loc[plot_mask, 'signal'].max(),
-        shading='gouraud'
-        )
-    if x_axis_name in ['freq', 'freq_late']:
-        g.map_dataframe(
-            polar_heatmapper, radius='freq',
-            colormesh_kwargs=colormesh_kws,
-            label_key=label_subset, delta_deg=delta_deg)
-    elif x_axis_name == 'amp':
-        g.map_dataframe(
-            polar_heatmapper, radius='amp',
-            colormesh_kwargs=colormesh_kws,
-            label_key=label_subset, delta_deg=delta_deg)
+    this_ax = plt.gca()
+
+    dummy_legend_handle = mpl.patches.Rectangle(
+        (0, 0), 1, 1, fill=False, edgecolor='none', visible=False)
+    custom_legend_lines = [dummy_legend_handle] + [
+        Line2D([0], [0], color=this_colormap(xx), lw=1)
+        for xx in legend_hues_normed
+    ]
+    this_ax.legend(
+        custom_legend_lines, custom_legend_text,
+        loc='lower left', bbox_to_anchor=(1.3, 1.025), borderaxespad=0.)
+
     g.set_titles(template="{col_name}")
     g.figure.suptitle(f'AUC vs {x_axis_name}')
-    pdf.savefig(bbox_inches='tight', pad_inches=0)
-    if show_plots:
-        plt.show()
-    else:
-        plt.close()
-    # color bar
-    fig, ax = plt.subplots()
-    vmin, vmax = colormesh_kws['vmin'], colormesh_kws['vmax']
-    fig.colorbar(
-        mpl.cm.ScalarMappable(
-            norm=mpl.colors.Normalize(vmin=vmin, vmax=vmax),
-            cmap=colormesh_kws['cmap']
-        ),
-        ax=ax
-    )
     pdf.savefig(bbox_inches='tight', pad_inches=0)
     if show_plots:
         plt.show()
@@ -488,21 +503,6 @@ with PdfPages(pdf_path) as pdf:
                 colormesh_kwargs=colormesh_kws_delta,
                 label_key=label_subset, delta_deg=delta_deg)
         g.figure.suptitle(f'delta AUC vs {x_axis_name}')
-        pdf.savefig(bbox_inches='tight', pad_inches=0)
-        if show_plots:
-            plt.show()
-        else:
-            plt.close()
-        # color bar
-        fig, ax = plt.subplots()
-        ##
-        fig.colorbar(
-            mpl.cm.ScalarMappable(
-                norm=normlize,
-                cmap=colormesh_kws_delta['cmap']
-            ),
-            ax=ax
-        )
         pdf.savefig(bbox_inches='tight', pad_inches=0)
         if show_plots:
             plt.show()

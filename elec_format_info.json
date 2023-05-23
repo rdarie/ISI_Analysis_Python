@@ -1,0 +1,106 @@
+[
+    {
+        "label":"-(14,)+(6, 22)",
+        "pretty_label":"L. flex.",
+        "which_array":"caudal",
+        "palette_idx":0,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(136,)+(144,)",
+        "pretty_label":"L. flex.",
+        "which_array":"rostral",
+        "palette_idx":1,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(27,)+(19,)",
+        "pretty_label":"R. flex.",
+        "which_array":"caudal",
+        "palette_idx":2,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(27,)+(28,)",
+        "pretty_label":"R. flex.",
+        "which_array":"caudal",
+        "palette_idx":2,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(160,)+(152,)",
+        "pretty_label":"R. flex.",
+        "which_array":"rostral",
+        "palette_idx":3,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(3,)+(2,)",
+        "pretty_label":"L. ext.",
+        "which_array":"caudal",
+        "palette_idx":4,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(139,)+(131,)",
+        "pretty_label":"L. ext.",
+        "which_array":"rostral",
+        "palette_idx":5,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(27,)+(26,)",
+        "pretty_label":"R. ext.",
+        "which_array":"caudal",
+        "palette_idx":6,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(155,)+(147,)",
+        "pretty_label":"R. ext.",
+        "which_array":"rostral",
+        "palette_idx":7,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(131,)+(130,)",
+        "pretty_label":"L. foot strike",
+        "which_array":"rostral",
+        "palette_idx":8,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(155,)+(154,)",
+        "pretty_label":"R. foot strike",
+        "which_array":"rostral",
+        "palette_idx":9,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(14, 136)+(6, 22)",
+        "pretty_label":"-(14, 136)+(6, 22)",
+        "which_array":"across",
+        "palette_idx":9,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    },
+    {
+        "label":"-(116,)+(152,)",
+        "pretty_label":"-(116,)+(152,)",
+        "which_array":"rostral",
+        "palette_idx":9,
+        "palette_type":"palettable",
+        "palettable_module":"colorbrewer.qualitative.Paired_12"
+    }
+]

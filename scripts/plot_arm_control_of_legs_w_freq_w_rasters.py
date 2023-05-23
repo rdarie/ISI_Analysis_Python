@@ -92,15 +92,15 @@ plots_dt = int(2e3)  # usec
 # folder_name = "Day12_PM"
 # block_idx = 4
 folder_name = "Day11_AM"
-block_idx = 2
+block_idx = 4
 
 angles_dict = {
     'LeftElbow': ['LeftForeArm', 'LeftElbow', 'LeftUpperArm'],
     'RightElbow': ['RightForeArm', 'RightElbow', 'RightUpperArm'],
-    'LeftKnee': ['LeftHip', 'LeftKnee', 'LeftAnkle'],
-    'RightKnee': ['RightHip', 'RightKnee', 'RightAnkle'],
-    # 'LeftKnee': ['LeftLowerLeg', 'LeftKnee', 'LeftUpperLeg'],
-    # 'RightKnee': ['RightLowerLeg', 'RightKnee', 'RightUpperLeg'],
+    # 'LeftKnee': ['LeftHip', 'LeftKnee', 'LeftAnkle'],
+    # 'RightKnee': ['RightHip', 'RightKnee', 'RightAnkle'],
+    'LeftKnee': ['LeftLowerLeg', 'LeftKnee', 'LeftUpperLeg'],
+    'RightKnee': ['RightLowerLeg', 'RightKnee', 'RightUpperLeg'],
     }
 
 data_path = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
@@ -266,7 +266,7 @@ for ii, (this_timestamp, group) in enumerate(stim_info_df.groupby('timestamp_use
 # stim_info_df.index[stim_info_df.index > 135000000]
 # plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
 '''
-include_verbal_ax = False
+has_audible_timing = False
 legend_halfway_idx = 2
 # emg_label_subset = ['LVL', 'LMH', 'LMG', 'RLVL', 'RMH', 'RMG']
 control_label_subset = [
@@ -296,7 +296,7 @@ vspan_limits = [
 # stim_info_df.index[stim_info_df.index > 76000000]
 # plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
 '''
-include_verbal_ax = False
+has_audible_timing = False
 legend_halfway_idx = 2
 emg_label_subset = ['LVL', 'LMH', 'LMG', 'RLVL', 'RMH', 'RMG']
 only_these_electrodes = ["-(14,)+(6, 22)", "-(3,)+(2,)", "-(139,)+(131,)", "-(136,)+(144,)"]
@@ -326,25 +326,32 @@ vspan_limits = [
     ]
 ]
 '''
+# for day11_AM block 4:
+# stim_info_df.index[stim_info_df.index > 480010033]
+# stim_info_df.index[stim_info_df.index > xxx]
+# plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
+align_timestamps = [500046533, 480117533]
+baseline_timestamps = [int(181e6) + 1500, int(181e6) + 1500]
+
 # for day11_AM block 2:
 # stim_info_df.index[stim_info_df.index > 370000000]
 # stim_info_df.index[stim_info_df.index > xxx]
 # plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
+# align_timestamps = [348082033, 370068533]
+# baseline_timestamps = [int(120e6) + 4500, int(120e6) + 4500]
 
-include_verbal_ax = True
+has_audible_timing = True
 legend_halfway_idx = 4
 emg_label_subset = ['LVL', 'LMH', 'LTA', 'LMG', 'RLVL', 'RMH', 'RTA', 'RMG']
 control_label_subset = [
     ('LeftKnee', 'angle'), ('RightKnee', 'angle'),
 ]
 outcome_label_subset = [
-    ('LeftAnkle', 'displacement'), ('RightAnkle', 'displacement'),
+    ('LeftToe', 'z'), ('RightToe', 'z'),
 ]
 which_outcome = 'displacement'
 color_background = False
 
-align_timestamps = [348082033, 370068533]
-baseline_timestamps = [int(120e6) + 4500, int(120e6) + 4500]
 vspan_limits = [
     # left
     [
@@ -373,16 +380,17 @@ audible_timing = audible_timing.stack().reset_index().iloc[:, 1:]
 audible_timing.columns = ['words', 'time']
 audible_timing.loc[:, ['m', 's', 'f']] = audible_timing['time'].apply(lambda x: x.split(':')).apply(pd.Series).to_numpy()
 audible_timing.loc[:, ['m', 's', 'f']] = audible_timing.loc[:, ['m', 's', 'f']].applymap(int_or_nan)
-total_frames = audible_timing['m'] * 60 * 30 + audible_timing['s'] * 30 + audible_timing['f']
-# video_t = total_frames.apply(lambda x: pd.Timedelta(x / 29.97, unit='sec'))
+audible_timing.loc[:, 'total_frames'] = audible_timing['m'] * 60 * 30 + audible_timing['s'] * 30 + audible_timing['f']
+# video_t = audible_timing.loc[:, 'total_frames'].apply(lambda x: pd.Timedelta(x / 29.97, unit='sec'))
 # audible_timing.loc[:, 'timestamp'] = pd.Timestamp(year=2022, month=10, day=31) + video_t
 
 first_ripple = data_dict['ripple']['TimeCode'].iloc[0, :]
-ripple_origin_timestamp = timestring_to_timestamp(first_ripple['TimeString'], fps=fps, timecode_type='NDF')
-video_origin_timecode = video_info[folder_name][block_idx]['start_timestamps'][0]
-video_origin_timestamp = timestring_to_timestamp(video_origin_timecode, fps=fps, timecode_type='NDF')
-ripple_to_video = (ripple_origin_timestamp - video_origin_timestamp).total_seconds()
-audible_timing.loc[:, 'time'] = first_ripple['PacketTime'] - ripple_to_video + total_frames / fps
+ripple_origin_timestamp = timestring_to_timestamp(first_ripple['TimeString'], day=31, fps=fps, timecode_type='NDF')
+audible_timing.loc[:, 'timedeltas'] = audible_timing.loc[:, 'total_frames'].apply(lambda x: pd.Timedelta(x / 29.97, unit='sec'))
+audible_timecodes = pd.Timestamp(year=2022, month=10, day=31) + audible_timing.loc[:, 'timedeltas']
+audible_timing.loc[:, 'ripple_time'] = (audible_timecodes - ripple_origin_timestamp).apply(lambda x: x.total_seconds()) + first_ripple['PacketTime']
+audible_timing.dropna(inplace=True)
+audible_timing.loc[:, 'time_usec'] = audible_timing['ripple_time'].apply(lambda x: int(x * 1e6))
 
 vspan_palette = palettable.colorbrewer.qualitative.Pastel2_3.mpl_colors
 vspan_colors = [
@@ -393,9 +401,10 @@ vspan_colors = [
 ]
 
 all_emg_dict = {}
-all_stim_dict = {}
 all_kin_dict = {}
 all_spikes_dict = {}
+if has_audible_timing:
+    all_audible_dict = {}
 metadata_fields = ['amp', 'freq', 'elecConfig_str']
 
 ## epoch the EMG
@@ -421,16 +430,6 @@ for ts_idx, timestamp in enumerate(align_timestamps):
         index=emg_epoch_t, columns=emg_df.columns)
     all_emg_dict[this_entry].index.name = 'time_usec'
 
-    ## epoch the stim info traces
-    aligned_amp_df = data_dict['stim_info_traces']['amp'].loc[this_mask, :]
-    aligned_amp_df = aligned_amp_df.loc[:, (aligned_amp_df != 0).any(axis='index')]
-    aligned_freq_df = data_dict['stim_info_traces']['freq'].loc[this_mask, :]
-    aligned_freq_df = aligned_freq_df.loc[:, aligned_amp_df.columns]
-
-    this_entry = (timestamp, stim_metadata[0], stim_metadata[1],)
-    all_stim_dict[this_entry] = pd.concat({'amp': aligned_amp_df, 'freq': aligned_freq_df}, names=['feature'], axis='columns')
-    all_stim_dict[this_entry].index = emg_epoch_t
-    all_stim_dict[this_entry].index.name = 'time_usec'
     ### epoch kinematics
     this_mask = (np.asarray(points_df.index) >= timestamp + left_sweep) & (np.asarray(points_df.index) <= timestamp + right_sweep)
     sweep_offset = 0
@@ -451,6 +450,8 @@ for ts_idx, timestamp in enumerate(align_timestamps):
         points_df.loc[this_mask, :].to_numpy(),
         index=kin_epoch_t, columns=points_df.columns)
     all_kin_dict[this_entry].index.name = 'time_usec'
+    # no baseline
+    #
     # baseline based on defined timestamp
     all_kin_dict[this_entry] = all_kin_dict[this_entry] - points_df.loc[baseline_timestamps[ts_idx], :]
     # baseline based on first entry
@@ -458,18 +459,18 @@ for ts_idx, timestamp in enumerate(align_timestamps):
     this_mask = (nev_spikes['time_usec'] >= (timestamp + int(left_sweep))) & (nev_spikes['time_usec'] <= (timestamp + int(right_sweep)))
     all_spikes_dict[timestamp] = nev_spikes.loc[this_mask, :].copy()
     all_spikes_dict[timestamp].loc[:, 'time_usec'] = all_spikes_dict[timestamp]['time_usec'] - timestamp
+    if has_audible_timing:
+        this_mask = (audible_timing['time_usec'] >= (timestamp + int(left_sweep))) & (audible_timing['time_usec'] <= (timestamp + int(right_sweep)))
+        all_audible_dict[timestamp] = audible_timing.loc[this_mask, :].copy()
+        all_audible_dict[timestamp].loc[:, 'time_usec'] = all_audible_dict[timestamp]['time_usec'] - timestamp
+
 
 aligned_emg_df = pd.concat(all_emg_dict, names=['timestamp_usec'] + metadata_fields)
-aligned_stim_info = pd.concat(all_stim_dict, names=['timestamp_usec', 'amp', 'freq'])
+
 aligned_kin_df = pd.concat(all_kin_dict, names=['timestamp_usec'] + metadata_fields)
 aligned_spikes_df = pd.concat(all_spikes_dict, names=['timestamp_usec'])
-
-for cn in data_dict['stim_info_traces']['amp'].columns:
-    print(f'{cn}\n\tAccording to traces, unique amps are:')
-    print(f"\t{data_dict['stim_info_traces']['amp'][cn].unique()}")
-    if cn in stim_info_df['elecConfig_str'].tolist():
-        print(f'\tAccording to stim_info, unique amps are:')
-        print(f"\t{stim_info_df.loc[stim_info_df['elecConfig_str'] == cn, 'amp'].unique()}")
+if has_audible_timing:
+    aligned_audible_df = pd.concat(all_audible_dict, names=['timestamp_usec'])
 
 displacements_list = []
 columns_list = []
@@ -489,6 +490,7 @@ disps_df.columns = pd.MultiIndex.from_tuples(columns_list, names=['label', 'axis
 aligned_kin_df = pd.concat([aligned_kin_df, disps_df], axis='columns')
 
 pretty_points_label_lookup = {
+    'LeftToe': 'Left toe', 'RightToe': 'Right toe',
     'LeftKnee': 'Left knee', 'RightKnee': 'Right knee',
     'LeftElbow': 'Left elbow', 'RightElbow': 'Right elbow',
     'LeftAnkle': 'Left ankle', 'RightAnkle': 'Right ankle',
@@ -563,35 +565,14 @@ with PdfPages(pdf_path) as pdf:
         # plot_emg['label'].unique().tolist()
         plot_emg = (aligned_emg_df.loc[:, emg_label_subset].iloc[::emg_downsample, :]).stack().to_frame(name='signal').reset_index()
         plot_emg.loc[:, 'time_sec'] = plot_emg['time_usec'] * 1e-6
-        ##
-        plot_stim_traces = aligned_stim_info.xs('amp', level='feature', drop_level=False, axis='columns').iloc[::emg_downsample, :].stack(level=['elecConfig_str', 'feature']).to_frame(name='signal').reset_index()
-        plot_stim_traces.sort_values(by='elecConfig_str', key=elec_reorder_fun, inplace=True)
-        plot_stim_traces.loc[:, 'time_sec'] = plot_stim_traces['time_usec'] * 1e-6
-        plot_stim_traces.loc[:, 'signal'] = plot_stim_traces['signal'] * 1e-3  # convert to mA
-        ## offset rostral:
-        caudal_amp_offset = 20
-        amp_ticks = [0, 10, caudal_amp_offset, caudal_amp_offset + 10]
-        amp_ticklabels = ['0', '10', '0', '10']
-        plot_stim_traces.loc[:, 'which_array'] = plot_stim_traces['elecConfig_str'].map(elec_format_df.set_index('label')['which_array'])
-        plot_stim_traces.loc[plot_stim_traces['which_array'].isin(['caudal']), 'signal'] += caudal_amp_offset
-        plot_stim_traces = plot_stim_traces.loc[plot_stim_traces['elecConfig_str'].isin(only_these_electrodes), :]
-        ##
-        plot_stim_freq = aligned_stim_info.xs('freq', level='feature', drop_level=False, axis='columns').iloc[::emg_downsample, :].stack(level=['elecConfig_str', 'feature']).to_frame(name='signal').reset_index()
-        plot_stim_freq.sort_values(by='elecConfig_str', key=elec_reorder_fun, inplace=True)
-        plot_stim_freq.loc[:, 'time_sec'] = plot_stim_freq['time_usec'] * 1e-6
-        plot_stim_freq.loc[:, 'signal'] = plot_stim_freq['signal']
-        ## offset rostral:
-        plot_stim_freq.loc[:, 'which_array'] = plot_stim_freq['elecConfig_str'].map(elec_format_df.set_index('label')['which_array'])
-        caudal_freq_offset = 125
-        freq_ticks = [0, 100, caudal_freq_offset, caudal_freq_offset + 100]
-        freq_ticklabels = ['0', '100', '0', '100']
-        plot_stim_freq.loc[plot_stim_freq['which_array'].isin(['caudal']), 'signal'] += caudal_freq_offset
-        plot_stim_freq = plot_stim_freq.loc[plot_stim_freq['elecConfig_str'].isin(only_these_electrodes), :]
-        ## plot_stim_freq
         plot_stim_spikes = aligned_spikes_df.reset_index()
-        plot_stim_spikes = plot_stim_spikes.loc[plot_stim_spikes['elecConfig_str'].isin(only_these_electrodes), :]
-        # points_label_subset = [('LeftLimb', 'length'), ('RightLimb', 'length'), ('LeftElbow', 'angle'), ('RightElbow', 'angle')]
+        if has_audible_timing:
+            plot_audible = aligned_audible_df.reset_index()
         points_label_subset = control_label_subset + outcome_label_subset
+        try:
+            plot_stim_spikes = plot_stim_spikes.loc[plot_stim_spikes['elecConfig_str'].isin(only_these_electrodes), :]
+        except:
+            pass
 
         plot_kin = aligned_kin_df.loc[:, points_label_subset].iloc[::kin_downsample, :].stack(level=['label', 'axis']).to_frame(name='signal').reset_index()
         plot_kin.loc[:, 'time_sec'] = plot_kin['time_usec'] * 1e-6
@@ -600,7 +581,7 @@ with PdfPages(pdf_path) as pdf:
         pretty_outcome_labels = [prettify_points_label_tuple(lbl) for lbl in outcome_label_subset]
         pretty_control_labels = [prettify_points_label_tuple(lbl) for lbl in control_label_subset]
         fig = plt.figure(figsize=(8, 8))
-        if include_verbal_ax:
+        if has_audible_timing:
             gs = fig.add_gridspec(
                 # 5, 3, height_ratios=(1, 1, 1, 2, 1), width_ratios=(8, 8, 1),
                 5, 3, height_ratios=(2, 2, 5, 2, 1), width_ratios=(8, 8, 1),
@@ -626,7 +607,7 @@ with PdfPages(pdf_path) as pdf:
         outcome_ax = [fig.add_subplot(gs[3, 0], sharex=kin_ax[0]), fig.add_subplot(gs[3, 1], sharex=kin_ax[1])]
         outcome_ax[0].get_shared_y_axes().join(outcome_ax[0], outcome_ax[1])
 
-        if include_verbal_ax:
+        if has_audible_timing:
             verbal_ax = [fig.add_subplot(gs[4, 0], sharex=kin_ax[0]), fig.add_subplot(gs[4, 1], sharex=kin_ax[1])]
             verbal_ax[0].get_shared_y_axes().join(verbal_ax[0], verbal_ax[1])
             bottom_ax = verbal_ax
@@ -639,84 +620,120 @@ with PdfPages(pdf_path) as pdf:
             nm: emg_hue_map[nm] for nm in emg_label_subset
             }
 
-    vert_span = plot_emg['signal'].max() - plot_emg['signal'].min()
-    vert_offset = -30e-2 * vert_span
-    horz_span = plot_emg['time_sec'].max() - plot_emg['time_sec'].min()
-    horz_offset = 0 * horz_span
-    n_offsets = 0
+        vert_span = plot_emg['signal'].max() - plot_emg['signal'].min()
+        vert_offset = -30e-2 * vert_span
+        horz_span = plot_emg['time_sec'].max() - plot_emg['time_sec'].min()
+        horz_offset = 0 * horz_span
+        n_offsets = 0
 
-    emg_major_yticks = []
-    emg_minor_yticks = []
-    emg_yticklabels = []
-    vert_offset_lookup = {}
-    for name in emg_label_subset:
-        group_index = plot_emg.loc[plot_emg['label'] == name, :].index
-        plot_emg.loc[group_index, 'signal'] = plot_emg.loc[group_index, 'signal'] + n_offsets * vert_offset
-        plot_emg.loc[group_index, 'time_sec'] = plot_emg.loc[group_index, 'time_sec'] + n_offsets * horz_offset
-        vert_offset_lookup[name] = n_offsets * vert_offset
-        emg_major_yticks += [n_offsets * vert_offset]
-        emg_minor_yticks += [(n_offsets - 0.25) * vert_offset, (n_offsets + 0.25) * vert_offset]
-        emg_yticklabels += [f"{-0.25 * vert_offset:.2f}", "0.", f"{0.25 * vert_offset:.2f}"]
-        n_offsets += 1
+        emg_major_yticks = []
+        emg_minor_yticks = []
+        emg_yticklabels = []
+        vert_offset_lookup = {}
+        for name in emg_label_subset:
+            group_index = plot_emg.loc[plot_emg['label'] == name, :].index
+            plot_emg.loc[group_index, 'signal'] = plot_emg.loc[group_index, 'signal'] + n_offsets * vert_offset
+            plot_emg.loc[group_index, 'time_sec'] = plot_emg.loc[group_index, 'time_sec'] + n_offsets * horz_offset
+            vert_offset_lookup[name] = n_offsets * vert_offset
+            emg_major_yticks += [n_offsets * vert_offset]
+            emg_minor_yticks += [(n_offsets - 0.25) * vert_offset, (n_offsets + 0.25) * vert_offset]
+            emg_yticklabels += [f"{-0.25 * vert_offset:.2f}", "0.", f"{0.25 * vert_offset:.2f}"]
+            n_offsets += 1
 
-    left_mask_emg = plot_emg['timestamp_usec'] == align_timestamps[0]
-    right_mask_emg = plot_emg['timestamp_usec'] == align_timestamps[1]
+        left_mask_emg = plot_emg['timestamp_usec'] == align_timestamps[0]
+        right_mask_emg = plot_emg['timestamp_usec'] == align_timestamps[1]
 
-    sns.lineplot(
-        data=plot_emg.loc[left_mask_emg, :], ax=emg_ax[0],
-        x='time_sec', y='signal',
-        hue='label', palette=this_emg_hue_map, legend=False)
-    sns.lineplot(
-        data=plot_emg.loc[right_mask_emg, :], ax=emg_ax[1],
-        x='time_sec', y='signal',
-        hue='label', palette=this_emg_hue_map, legend=False)
+        sns.lineplot(
+            data=plot_emg.loc[left_mask_emg, :], ax=emg_ax[0],
+            x='time_sec', y='signal',
+            hue='label', palette=this_emg_hue_map, legend=False)
+        sns.lineplot(
+            data=plot_emg.loc[right_mask_emg, :], ax=emg_ax[1],
+            x='time_sec', y='signal',
+            hue='label', palette=this_emg_hue_map, legend=False)
 
-    dummy_legend_handle = mpl.patches.Rectangle(
-        (0, 0), 1, 1, fill=False, edgecolor='none', visible=False)
-    custom_legend_lines = [dummy_legend_handle] + [
-        Line2D([0], [0], color=c, lw=3)
-        for idx, c in enumerate(this_emg_palette)
+        dummy_legend_handle = mpl.patches.Rectangle(
+            (0, 0), 1, 1, fill=False, edgecolor='none', visible=False)
+        custom_legend_lines = [dummy_legend_handle] + [
+            Line2D([0], [0], color=c, lw=3)
+            for idx, c in enumerate(this_emg_palette)
+        ]
+
+        determine_side = lambda x: 'Left  ' if x[0] == 'L' else 'Right'
+        pretty_emg_labels = [f'         {muscle_names[n]}' for n in emg_label_subset]
+        idx_of_half = int(len(emg_label_subset) / 2)
+        pretty_emg_labels[0] = f'{determine_side(emg_label_subset[0])} {muscle_names[emg_label_subset[0]]}'
+        pretty_emg_labels[idx_of_half] = f'{determine_side(emg_label_subset[idx_of_half])} {muscle_names[emg_label_subset[idx_of_half]]}'
+
+        time_ticks = [0, 10, 20]
+        for this_ax in emg_ax:
+            this_ax.xaxis.set_major_locator(ticker.FixedLocator(time_ticks))
+            # this_ax.xaxis.set_major_formatter()
+            this_ax.xaxis.set_minor_locator(ticker.FixedLocator(np.arange(left_sweep * 1e-6, right_sweep * 1e-6, 1)))
+            # this_ax.xaxis.set_minor_formatter()
+            this_ax.set_xlim((left_sweep * 1e-6, right_sweep * 1e-6))
+            plt.setp(this_ax.get_xticklabels(), visible=False)
+            #
+            # this_ax.yaxis.set_major_locator(ticker.FixedLocator(sorted(emg_major_yticks)))
+            # this_ax.yaxis.set_minor_locator(ticker.FixedLocator(sorted(emg_minor_yticks)))
+            this_ax.yaxis.set_major_locator(ticker.MultipleLocator(np.abs(vert_offset)))
+            this_ax.yaxis.set_minor_locator(ticker.MultipleLocator(np.abs(vert_offset) / 2))
+            plt.setp(this_ax.get_yticklabels(), visible=False)
+
+        emg_ax[0].set_ylabel('Normalized\nEMG (a.u.)')
+        # emg_ax[0].set_yticklabels(emg_yticklabels)
+        emg_ax[1].legend(custom_legend_lines, ['EMG'] + pretty_emg_labels, loc='center left', bbox_to_anchor=(1.025, .5), borderaxespad=0.)
+        emg_ax[1].set_ylabel('')
+
+        # reorder to match left-right order
+        electrode_labels = elec_format_df.loc[elec_format_df['label'].isin(plot_stim_spikes['elecConfig_str']), :].sort_values(['which_array', 'palette_idx'])['label']
+        electrode_hue_map = {
+            nm: base_electrode_hue_map[nm] for nm in electrode_labels
+            }
+        pretty_electrode_labels = [f'{electrode_functional_names[cfg]}' for cfg in electrode_labels]
+
+    if has_audible_timing:
+        audible_palette = palettable.colorbrewer.qualitative.Set3_12.mpl_colors
+        audible_hue_map = {
+            'Left Foot': audible_palette[5],
+            'Right Foot': audible_palette[6]
+            }
+        # plot_audible.loc[:, 'adjusted_time'] = plot_audible['time_usec'] * 1e-6
+        # plot_audible.loc[:, ['time', 'adjusted_time']]
+        left_mask_audible = (plot_audible['timestamp_usec'] == align_timestamps[0])
+        x = plot_audible.loc[left_mask_audible, 'time_usec'].drop_duplicates() * 1e-6
+        origins = np.concatenate([x.to_numpy().reshape(1, -1), np.zeros((1, x.shape[0])) - 0.1], axis=0).T
+        endpoints = origins.copy()
+        endpoints[:, 1] -= .8
+        segments = np.concatenate([origins[:, np.newaxis, :], endpoints[:, np.newaxis, :]], axis=1)
+        lc = mpl.collections.LineCollection(segments, colors=plot_audible.loc[left_mask_audible, 'words'].map(audible_hue_map).to_list())
+        lc.set_linewidth(3)
+        line = verbal_ax[0].add_collection(lc)
+        right_mask_audible = (plot_audible['timestamp_usec'] == align_timestamps[1])
+        x = plot_audible.loc[right_mask_audible, 'time_usec'].drop_duplicates() * 1e-6
+        origins = np.concatenate([x.to_numpy().reshape(1, -1), np.zeros((1, x.shape[0])) - 0.1], axis=0).T
+        endpoints = origins.copy()
+        endpoints[:, 1] -= .8
+        segments = np.concatenate([origins[:, np.newaxis, :], endpoints[:, np.newaxis, :]], axis=1)
+        lc = mpl.collections.LineCollection(segments, colors=plot_audible.loc[right_mask_audible, 'words'].map(audible_hue_map).to_list())
+        lc.set_linewidth(3)
+        line = verbal_ax[1].add_collection(lc)
+
+    for this_ax in verbal_ax:
+        this_ax.set_xlim([left_sweep * 1e-6, right_sweep * 1e-6])
+        this_ax.set_ylim([-1., 0.])
+
+    verbal_legend_lines = [dummy_legend_handle] + [
+        Line2D([0], [0], color=value, lw=2)
+        for key, value in audible_hue_map.items()
     ]
+    verbal_ax[1].legend(
+        verbal_legend_lines, ["Report", '"Left"', '"Right"'],
+        loc='center left', bbox_to_anchor=(1.025, .5), borderaxespad=0.)
 
-    determine_side = lambda x: 'Left  ' if x[0] == 'L' else 'Right'
-    pretty_emg_labels = [f'         {muscle_names[n]}' for n in emg_label_subset]
-    idx_of_half = int(len(emg_label_subset) / 2)
-    pretty_emg_labels[0] = f'{determine_side(emg_label_subset[0])} {muscle_names[emg_label_subset[0]]}'
-    pretty_emg_labels[idx_of_half] = f'{determine_side(emg_label_subset[idx_of_half])} {muscle_names[emg_label_subset[idx_of_half]]}'
-
-    time_ticks = [0, 10, 20]
-    for this_ax in emg_ax:
-        this_ax.xaxis.set_major_locator(ticker.FixedLocator(time_ticks))
-        # this_ax.xaxis.set_major_formatter()
-        this_ax.xaxis.set_minor_locator(ticker.FixedLocator(np.arange(left_sweep * 1e-6, right_sweep * 1e-6, 1)))
-        # this_ax.xaxis.set_minor_formatter()
-        this_ax.set_xlim((left_sweep * 1e-6, right_sweep * 1e-6))
-        plt.setp(this_ax.get_xticklabels(), visible=False)
-        #
-        # this_ax.yaxis.set_major_locator(ticker.FixedLocator(sorted(emg_major_yticks)))
-        # this_ax.yaxis.set_minor_locator(ticker.FixedLocator(sorted(emg_minor_yticks)))
-        this_ax.yaxis.set_major_locator(ticker.MultipleLocator(np.abs(vert_offset)))
-        this_ax.yaxis.set_minor_locator(ticker.MultipleLocator(np.abs(vert_offset) / 2))
-        plt.setp(this_ax.get_yticklabels(), visible=False)
-
-    emg_ax[0].set_ylabel('Normalized\nEMG (a.u.)')
-    # emg_ax[0].set_yticklabels(emg_yticklabels)
-    emg_ax[1].legend(custom_legend_lines, ['EMG'] + pretty_emg_labels, loc='center left', bbox_to_anchor=(1.025, .5), borderaxespad=0.)
-    emg_ax[1].set_ylabel('')
-
-    # reorder to match left-right order
-    electrode_labels = elec_format_df.loc[elec_format_df['label'].isin(plot_stim_traces['elecConfig_str']), :].sort_values(['which_array', 'palette_idx'])['label']
-    electrode_hue_map = {
-        nm: base_electrode_hue_map[nm] for nm in electrode_labels
-        }
-    pretty_electrode_labels = [f'{electrode_functional_names[cfg]}' for cfg in electrode_labels]
-
-    left_mask_stim = plot_stim_traces['timestamp_usec'] == align_timestamps[0]
-    right_mask_stim = plot_stim_traces['timestamp_usec'] == align_timestamps[1]
-
+    raster_linewidth = 1.
     mixin_color = np.asarray([1., 1., 1.])
     max_mixin = 0.5
-    raster_linewidth = 1.
     skip_every = 10
     all_custom_stim_legend_lines = []
 
@@ -785,7 +802,6 @@ with PdfPages(pdf_path) as pdf:
     for this_ax in stim_ax:
         plt.setp(this_ax.get_xticklabels(), visible=False)
         plt.setp(this_ax.get_yticklabels(), visible=False)
-        this_ax.yaxis.set_major_locator(ticker.FixedLocator(amp_ticks))
         this_ax.set_yticks([])
 
     stim_ax[1].set_ylabel('')
@@ -891,12 +907,12 @@ with PdfPages(pdf_path) as pdf:
     outcome_ax[1].set_yticklabels([])
     outcome_ax[1].set_ylabel('')
     if which_outcome == 'displacement':
-        outcome_ax[0].set_ylabel('Marker\ndisplacement\n(mm)')
+        outcome_ax[0].set_ylabel('Marker height\n(mm)')
     elif which_outcome == 'angle':
         outcome_ax[0].set_ylabel('joint angle\n(deg.)')
 
-    if include_verbal_ax:
-        verbal_ax[0].set_ylabel('Verbal ID\nof stim')
+    if has_audible_timing:
+        verbal_ax[0].set_ylabel('Verbal report\nof stim')
         for this_ax in verbal_ax:
             this_ax.xaxis.set_major_locator(ticker.FixedLocator(time_ticks))
             this_ax.set_yticklabels([])
@@ -914,7 +930,7 @@ with PdfPages(pdf_path) as pdf:
                 stim_ax[lr_idx].axvspan(*lims, facecolor=vspan_colors[lr_idx][train_idx], alpha=vspan_alpha)
                 # freq_ax[lr_idx].axvspan(*lims, facecolor=vspan_colors[lr_idx][train_idx], alpha=vspan_alpha)
                 outcome_ax[lr_idx].axvspan(*lims, facecolor=vspan_colors[lr_idx][train_idx], alpha=vspan_alpha)
-                if include_verbal_ax:
+                if has_audible_timing:
                     verbal_ax[lr_idx].axvspan(*lims, facecolor=vspan_colors[lr_idx][train_idx], alpha=vspan_alpha)
 
     fig.align_labels()

@@ -44,7 +44,7 @@ def sanitize_elec_config(
 def sanitize_stim_info(
         si, nev_spikes,
         split_trains=True, force_trains=False,
-        remove_zero_amp=True):
+        calc_rank_in_train=False, remove_zero_amp=True):
     for col_name in ['elecCath', 'elecAno']:
         si.loc[:, col_name] = si[col_name].apply(sanitize_elec_config)
     for col_name in ['amp', 'freq', 'pulseWidth', 'res', 'nipTime']:
@@ -58,28 +58,32 @@ def sanitize_stim_info(
     si.loc[:, 'original_timestamp_usec'] = si['timestamp_usec'].copy()
     #
     all_spike_times = nev_spikes['time_usec'].copy()
+    # pdb.set_trace()
     is_first_spike = (all_spike_times.diff() > 2e5)  # more than 200 msec / 5 Hz
     is_first_spike.iloc[0] = True  # first spike in recording is first in train
-    rank_in_train = is_first_spike.astype(int)
-    try:
-        for row_idx in nev_spikes.index:
-            if not is_first_spike.loc[row_idx]:
-                if row_idx > 0:
-                    rank_in_train.loc[row_idx] = rank_in_train.loc[row_idx - 1] + 1
-    except Exception:
-        traceback.print_exc()
-        pdb.set_trace()
-    nev_spikes.loc[:, 'rank_in_train'] = rank_in_train
+    if calc_rank_in_train:
+        rank_in_train = is_first_spike.astype(int)
+        try:
+            for row_idx in nev_spikes.index:
+                if not is_first_spike.loc[row_idx]:
+                    if row_idx > 0:
+                        rank_in_train.loc[row_idx] = rank_in_train.loc[row_idx - 1] + 1
+        except Exception:
+            traceback.print_exc()
+            pdb.set_trace()
+        nev_spikes.loc[:, 'rank_in_train'] = rank_in_train
+    else:
+        nev_spikes.loc[:, 'rank_in_train'] = 0
     first_spike_times = all_spike_times.loc[is_first_spike]
     if split_trains:
         closest_nev_times_train, _ = closestSeries(
-            referenceIdx=si.loc[si['isContinuous'].astype(bool), 'timestamp_usec'],
+            referenceIdx=si.loc[~si['isContinuous'].astype(bool), 'timestamp_usec'],
             sampleFrom=first_spike_times, strictly='neither')
         closest_nev_times_continuous, _ = closestSeries(
-            referenceIdx=si.loc[~si['isContinuous'].astype(bool), 'timestamp_usec'],
+            referenceIdx=si.loc[si['isContinuous'].astype(bool), 'timestamp_usec'],
             sampleFrom=all_spike_times, strictly='neither')
-        si.loc[si['isContinuous'].astype(bool), 'timestamp_usec'] = closest_nev_times_train.to_numpy()
-        si.loc[~si['isContinuous'].astype(bool), 'timestamp_usec'] = closest_nev_times_continuous.to_numpy()
+        si.loc[si['isContinuous'].astype(bool), 'timestamp_usec'] = closest_nev_times_continuous.to_numpy()
+        si.loc[~si['isContinuous'].astype(bool), 'timestamp_usec'] = closest_nev_times_train.to_numpy()
     else:
         closest_nev_times, _ = closestSeries(
             referenceIdx=si['timestamp_usec'],
@@ -95,12 +99,15 @@ def sanitize_all_logs(al):
     pdb.set_trace()
 
 
+def convert_nev_electrode_ids(x):
+    return 8 - (x - 1) % 8 + 8 * ((x - 1) // 8)
+
 def load_synced_mat(
         file_path=None,
         load_vicon=False, vicon_variable_names=None, vicon_as_df=False, kinematics_time_offset=0,
         interpolate_emg=True,
         load_ripple=False, ripple_variable_names=None, ripple_as_df=False,
-        load_stim_info=False, stim_info_variable_names=None, stim_info_as_df=False, split_trains=True, force_trains=False, stim_info_traces=True,
+        load_stim_info=False, stim_info_variable_names=None, stim_info_as_df=False, split_trains=True, force_trains=False, stim_info_traces=False,
         stim_info_trace_time_vector='EMG',
         load_all_logs=False, all_logs_variable_names=None, all_logs_as_df=False,
         load_meta=False, meta_variable_names=None, meta_as_df=False, verbose=0,
@@ -159,9 +166,16 @@ def load_synced_mat(
                         df.index.name = 'time_usec'
                         df.columns.name = 'label'
                         if interpolate_emg:
-                            cutout_mask = df.abs() < 2.5e-7
+                            cutout_mask = df.abs() < 4e-6
                             for shift_amount in [-1, 1]:
                                 cutout_mask = cutout_mask | cutout_mask.shift(shift_amount).fillna(False)
+                            # pdb.set_trace()
+                            '''
+                            plot_mask = (df.index > 0) & (df.index < 1e6)
+                            plt.plot(df.iloc[plot_mask, 6])
+                            plt.plot(df.iloc[(plot_mask & cutout_mask.iloc[:, 6]).to_numpy(), 6], 'r*')
+                            plt.show()
+                            '''
                             df = df.where(~cutout_mask)
                             df.interpolate(inplace=True)
                             df.fillna(0., inplace=True)
@@ -243,6 +257,7 @@ def load_synced_mat(
                     elec_ids = ret_dict['ripple']['NEV']['Data']['Spikes']['Electrode']
                     elec_ids[elec_ids > 5120] = elec_ids[elec_ids > 5120] - 5120
                     ret_dict['ripple']['NEV'] = pd.DataFrame(ret_dict['ripple']['NEV']['Data']['Spikes'])
+                    ret_dict['ripple']['NEV'].loc[:, 'Electrode'] = ret_dict['ripple']['NEV']['Electrode'].apply(convert_nev_electrode_ids)
         if load_stim_info:
             if verbose > 0:
                 print("hdf5todict(hdf5_file['Synced_Session_Data']['StimInfo'])")
@@ -383,7 +398,7 @@ def makeFilterCoeffsSOS(
             theseOpts['fs'] = samplingRate
             for harmonicOrder in range(1, nNotchHarmonics + 1):
                 w0 = harmonicOrder * notchFreq
-                bw = w0/notchQ
+                bw = w0 / notchQ
                 theseOpts['Wn'] = [w0 - bw/2, w0 + bw/2]
                 sos = signal.iirfilter(
                         **theseOpts, output='sos')
@@ -393,8 +408,7 @@ def makeFilterCoeffsSOS(
                     plotFilterOptsResponse(theseOpts)
         if theseOpts['btype'] == 'high':
             theseOpts['fs'] = samplingRate
-            sos = signal.iirfilter(
-                    **theseOpts, output='sos')
+            sos = signal.iirfilter(**theseOpts, output='sos')
             filterCoeffsSOS = np.concatenate([filterCoeffsSOS, sos])
             print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
             if plotting:
@@ -402,8 +416,7 @@ def makeFilterCoeffsSOS(
         #
         if theseOpts['btype'] == 'low':
             theseOpts['fs'] = samplingRate
-            sos = signal.iirfilter(
-                **theseOpts, output='sos')
+            sos = signal.iirfilter(**theseOpts, output='sos')
             filterCoeffsSOS = np.concatenate([filterCoeffsSOS, sos])
             print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
             if plotting:

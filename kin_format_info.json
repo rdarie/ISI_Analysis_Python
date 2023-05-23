@@ -1,0 +1,242 @@
+[
+    {
+        "Unnamed: 0":0,
+        "label":"LeftAnkle",
+        "axis":"x",
+        "pretty_label":"L. ankle (x)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":1,
+        "label":"LeftAnkle",
+        "axis":"y",
+        "pretty_label":"L. ankle (y)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":2,
+        "label":"LeftAnkle",
+        "axis":"z",
+        "pretty_label":"L. ankle (z)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":3,
+        "label":"LeftElbow",
+        "axis":"x",
+        "pretty_label":"L. elbow (x)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":4,
+        "label":"LeftElbow",
+        "axis":"y",
+        "pretty_label":"L. elbow (y)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":5,
+        "label":"LeftElbow",
+        "axis":"z",
+        "pretty_label":"L. elbow (z)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":3,
+        "label":"LeftToe",
+        "axis":"x",
+        "pretty_label":"L. toe (x)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":4,
+        "label":"LeftToe",
+        "axis":"y",
+        "pretty_label":"L. toe (y)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":5,
+        "label":"LeftToe",
+        "axis":"z",
+        "pretty_label":"L. toe (z)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":21,
+        "label":"RightAnkle",
+        "axis":"x",
+        "pretty_label":"R. ankle (x)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":22,
+        "label":"RightAnkle",
+        "axis":"y",
+        "pretty_label":"R. ankle (y)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":23,
+        "label":"RightAnkle",
+        "axis":"z",
+        "pretty_label":"R. ankle (z)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":21,
+        "label":"RightToe",
+        "axis":"x",
+        "pretty_label":"R. toe (x)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":22,
+        "label":"RightToe",
+        "axis":"y",
+        "pretty_label":"R. toe (y)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":23,
+        "label":"RightToe",
+        "axis":"z",
+        "pretty_label":"R. toe (z)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":24,
+        "label":"RightElbow",
+        "axis":"x",
+        "pretty_label":"R. elbow (x)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":25,
+        "label":"RightElbow",
+        "axis":"y",
+        "pretty_label":"R. elbow (y)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":26,
+        "label":"RightElbow",
+        "axis":"z",
+        "pretty_label":"R. elbow (z)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":42,
+        "label":"LeftElbow",
+        "axis":"angle",
+        "pretty_label":"L. elbow (angle)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":43,
+        "label":"RightElbow",
+        "axis":"angle",
+        "pretty_label":"R. elbow (angle)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":44,
+        "label":"LeftKnee",
+        "axis":"angle",
+        "pretty_label":"L. knee (angle)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":45,
+        "label":"RightKnee",
+        "axis":"angle",
+        "pretty_label":"R. knee (angle)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":46,
+        "label":"LeftLimb",
+        "axis":"length",
+        "pretty_label":"L. leg (length)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":47,
+        "label":"RightLimb",
+        "axis":"length",
+        "pretty_label":"R. leg (length)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":48,
+        "label":"LeftAnkle",
+        "axis":"displacement",
+        "pretty_label":"L. ankle (displacement)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":49,
+        "label":"LeftElbow",
+        "axis":"displacement",
+        "pretty_label":"L. elbow (displacement)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":53,
+        "label":"LeftKnee",
+        "axis":"displacement",
+        "pretty_label":"L. knee (displacement)",
+        "palette_idx":"#EE7733",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":55,
+        "label":"RightAnkle",
+        "axis":"displacement",
+        "pretty_label":"R. ankle (displacement)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":56,
+        "label":"RightElbow",
+        "axis":"displacement",
+        "pretty_label":"R. elbow (displacement)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    },
+    {
+        "Unnamed: 0":60,
+        "label":"RightKnee",
+        "axis":"displacement",
+        "pretty_label":"R. knee (displacement)",
+        "palette_idx":"#BBBBBB",
+        "palette_type":"hex"
+    }
+]

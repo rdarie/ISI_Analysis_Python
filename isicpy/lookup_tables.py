@@ -89,6 +89,10 @@ kinematics_offsets = {
         3: 1.6,
         4: 0.7
     },
+    'Day12_AM': {
+        2: 0.,
+        3: 0.
+    },
     'Day8_AM': {
         4: 0.9
     }
@@ -103,9 +107,13 @@ video_info = {
     },
     'Day11_AM': {
         1: {
-            'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4'],
-            'start_timestamps': ['23:05:24:14'],
-            'rollovers': [False]
+            'paths': [
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
+            ],
+            'start_timestamps': ['23:05:24:14', '23:05:56:19', '23:05:19:24'],
+            'rollovers': [True, True, True]
         },
         2: {
             'paths': [
@@ -114,12 +122,28 @@ video_info = {
                 '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
             ],
             'start_timestamps': ['23:05:24:14', '23:05:56:19', '23:05:19:24'],
-            'rollovers': [False, False, False]
+            'rollovers': [True, True, True]
         },
         4: {
-            'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4'],
-            'start_timestamps': ['23:05:24:14'],
-            'rollovers': [False]
+            'paths': [
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
+                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
+            ],
+            'start_timestamps': ['23:05:24:14', '23:05:56:19', '23:05:19:24'],
+            'rollovers': [True, True, True]
+        }
+    },
+    'Day12_AM': {
+        2: {
+            'paths': [],
+            'start_timestamps': [],
+            'rollovers': [],
+        },
+        3: {
+            'paths': [],
+            'start_timestamps': [],
+            'rollovers': [],
         }
     },
     'Day12_PM': {

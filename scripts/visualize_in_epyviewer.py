@@ -98,9 +98,9 @@ def visualize_dataset(
             this_kin_offset = 0
         data_dict = load_synced_mat(
             file_path,
-            load_stim_info=True, split_trains=False, stim_info_traces=True,
-            load_ripple=True, ripple_variable_names=['NEV', 'TimeCode'], ripple_as_df=True,
-            load_vicon=True, vicon_as_df=True, vicon_variable_names=['EMG', 'Points'], interpolate_emg=True, kinematics_time_offset=this_kin_offset,
+            load_stim_info=True, split_trains=True, stim_info_traces=False, force_trains=True,
+            load_ripple=True, ripple_variable_names=['NEV', 'TimeCode'], ripple_as_df=True,  # 'NS5', 'TimeCode'
+            load_vicon=True, vicon_as_df=True, vicon_variable_names=['EMG', 'Points'], interpolate_emg=True, kinematics_time_offset=this_kin_offset,  # , 'Points'
             load_all_logs=False, verbose=1
             )
         # TODO: fix error when loading lfp
@@ -184,7 +184,8 @@ def visualize_dataset(
             video_source.rates[0] = corrected_fps
             '''
         except Exception as e:
-            raise(e)
+            # raise(e)
+            pass
         if data_dict['vicon'] is not None:
             if 'EMG' in data_dict['vicon']:
                 emg_df = data_dict['vicon']['EMG'].copy()
@@ -391,7 +392,7 @@ def visualize_dataset(
                         np.median(
                             np.diff(points_df.index.get_level_values('time_usec'))) * 1e-6
                     ) ** -1
-                    )
+                )
                 t_start = points_df.index.get_level_values('time_usec')[0] * 1e-6
                 points_signals_source = ephyviewer.InMemoryAnalogSignalSource(
                     points_signals, points_sample_rate, t_start, channel_names=points_df.columns)
@@ -411,7 +412,8 @@ def visualize_dataset(
                     t_start = acc_df.index.get_level_values('time_usec')[0] * 1e-6
                     acc_signals_source = ephyviewer.InMemoryAnalogSignalSource(
                         acc_signals, acc_sample_rate, t_start, channel_names=acc_df.columns)
-                    acc_signals_view = ephyviewer.TraceViewer(source=acc_signals_source, name=f'block_{block_idx:0>2d}_{var_name}')
+                    acc_signals_view = ephyviewer.TraceViewer(
+                        source=acc_signals_source, name=f'block_{block_idx:0>2d}_{var_name}')
                     acc_signals_view.params_controller.on_automatic_color(cmap_name='Set3')
                     win.add_view(acc_signals_view, tabify_with=top_level_emg_view)
                     # if idx_into_list == 0:
@@ -424,7 +426,7 @@ def visualize_dataset(
             win.add_view(video_view, tabify_with=f'block_{block_idx:0>2d}_emg')
         except Exception as e:
             print(f'No video found for {folder_name} block {block_idx}')
-            raise(e)
+            # raise(e)
     win.show()
     app.exec_()
     return
@@ -433,8 +435,12 @@ def visualize_dataset(
 if __name__ == '__main__':
     # folder_name = "Day12_PM"
     # list_of_blocks = [4]
-    # folder_name = "Day8_AM"
+    folder_name = "Day8_AM"
+    list_of_blocks = [4]
+    # folder_name = "Day11_AM"
     # list_of_blocks = [4]
-    folder_name = "Day11_AM"
-    list_of_blocks = [2]
+    # folder_name = "Day11_PM"
+    # list_of_blocks = [2]
+    # folder_name = "Day12_AM"
+    # list_of_blocks = [3]
     visualize_dataset(folder_name, list_of_blocks=list_of_blocks)

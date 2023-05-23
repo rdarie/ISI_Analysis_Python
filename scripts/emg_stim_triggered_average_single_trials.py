@@ -75,13 +75,13 @@ for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
 
-folder_name = "Day2_AM"
-blocks_list = [3]
-this_emg_montage = emg_montages['lower']
+# folder_name = "Day2_AM"
+# blocks_list = [3]
+# this_emg_montage = emg_montages['lower']
 
-# folder_name = "Day11_PM"
-# blocks_list = [2, 3]
-# this_emg_montage = emg_montages['lower_v2']
+folder_name = "Day11_PM"
+blocks_list = [2, 3]
+this_emg_montage = emg_montages['lower_v2']
 
 data_path = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
 blocks_list_str = '_'.join(f"{block_idx}" for block_idx in blocks_list)
