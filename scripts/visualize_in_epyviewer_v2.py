@@ -1,5 +1,6 @@
 import traceback
-from isicpy.utils import load_synced_mat, closestSeries, makeFilterCoeffsSOS, timestring_to_timestamp
+from isicpy.utils_temp import load_synced_mat
+from isicpy.utils import timestring_to_timestamp
 from isicpy.lookup_tables import emg_montages, kinematics_offsets, video_info
 from pathlib import Path
 import pandas as pd
@@ -81,7 +82,7 @@ def visualize_dataset(
     win = ephyviewer.MainViewer(debug=False)
     verbose = 0
     # data_path = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
-    data_path = Path(f"Z:\\ISI\ISI-C\\ISI-C-003\\3_Preprocessed_Data\\{folder_name}")
+    base_folder_path = Path("F:\\Neural Recordings\\isic")
     this_emg_montage = emg_montages['lower_v2']
     filterOpts = {
         'low': {
@@ -92,15 +93,15 @@ def visualize_dataset(
         }
     }
     for idx_into_list, block_idx in enumerate(list_of_blocks):
-        file_path = data_path / f"Block{block_idx:0>4d}_Synced_Session_Data.mat"
+        #  file_path = data_path / f"Block{block_idx:0>4d}_Synced_Session_Data.mat"
         try:
             this_kin_offset = kinematics_offsets[folder_name][block_idx]
         except:
             this_kin_offset = 0
         data_dict = load_synced_mat(
-            file_path,
+            base_folder_path=base_folder_path, session_name=folder_name, block_index=block_idx,
             load_stim_info=True, split_trains=True, stim_info_traces=False, force_trains=True,
-            load_ripple=True, ripple_variable_names=['NEV', 'TimeCode'], ripple_as_df=True,  # 'NS5', 'TimeCode'
+            load_ripple=True, ripple_variable_names=['NEV', 'TimeCode', 'NF7'], ripple_as_df=True,  # 'NS5', 'TimeCode'
             load_vicon=True, vicon_as_df=True, vicon_variable_names=['EMG', 'Points'], interpolate_emg=True, kinematics_time_offset=this_kin_offset,  # , 'Points'
             load_all_logs=False, verbose=1
             )
@@ -199,6 +200,7 @@ def visualize_dataset(
                 t_start = emg_df.index.get_level_values('time_usec')[0] * 1e-6
                 emg_signals_source = ephyviewer.InMemoryAnalogSignalSource(
                     emg_signals, emg_sample_rate, t_start, channel_names=emg_df.columns)
+                # pdb.set_trace()
                 emg_signals_view = ephyviewer.TraceViewer(source=emg_signals_source, name=f'block_{block_idx:0>2d}_emg')
                 emg_signals_view.params_controller.on_automatic_color(cmap_name='Set3')
                 if idx_into_list == 0:
@@ -214,14 +216,14 @@ def visualize_dataset(
                     lambda x: f'\n{x["elecConfig_str"]}\nAmp: {x["amp"]}\nFreq: {x["freq"]}', axis='columns').to_numpy(),
                 'time': (data_dict['stim_info'].index.get_level_values('timestamp_usec') * 1e-6).to_numpy(),
                 'name': f'block_{block_idx:0>2d}_stim_info'
-            }
+                }
             these_events_list.append(stim_event_dict)
             if True:
                 stim_event_original_dict = {
                     'label': data_dict['stim_info'].apply(lambda x: f'\n{x["elecConfig_str"]}\nAmp: {x["amp"]}\nFreq: {x["freq"]}', axis='columns').to_numpy(),
                     'time': (data_dict['stim_info']['original_timestamp_usec'] * 1e-6).to_numpy(),
                     'name': f'block_{block_idx:0>2d}_original_stim_info'
-                }
+                    }
                 these_events_list.append(stim_event_original_dict)
             event_source = ephyviewer.InMemoryEventSource(all_events=these_events_list)
             event_view = ephyviewer.EventList(source=event_source, name=f'block_{block_idx:0>2d}_stim_info')
@@ -230,7 +232,6 @@ def visualize_dataset(
                 top_level_event_view = f'block_{block_idx:0>2d}_stim_info'
             else:
                 win.add_view(event_view, tabify_with=top_level_event_view)
-        # pdb.set_trace()
         if 'stim_info_traces' in data_dict:
             if data_dict['stim_info_traces'] is not None:
                 stim_info_trace_df = pd.concat(data_dict['stim_info_traces'], names=['feature'], axis='columns')
@@ -265,14 +266,13 @@ def visualize_dataset(
                     'label': data_dict['ripple']['TimeCode']['TimeString'].to_numpy(),
                     'time': data_dict['ripple']['TimeCode']['PacketTime'].to_numpy(),
                     'name': f'block_{block_idx:0>2d}_timecode'
-                }
+                    }
                 event_source = ephyviewer.InMemoryEventSource(all_events=[timecode_event_dict])
                 event_view = ephyviewer.EventList(source=event_source, name=f'block_{block_idx:0>2d}_timecode')
                 win.add_view(event_view, tabify_with=f'block_{block_idx:0>2d}_stim_info')
             if data_dict['ripple']['NEV'] is not None:
                 nev_spikes_df = data_dict['ripple']['NEV']
                 spike_list = []
-                # pdb.set_trace()
                 for elec, elec_spikes in nev_spikes_df.groupby('Electrode'):
                     if elec < 128:
                         this_label = f"{elec} (caudal)"
@@ -292,7 +292,8 @@ def visualize_dataset(
                     win.add_view(spike_view, tabify_with=top_level_spike_view)
             if 'NF7' in data_dict['ripple']:
                 if data_dict['ripple']['NF7'] is not None:
-                    lfp_df = data_dict['ripple']['NF7'].iloc[:, :2].copy()
+                    # lfp_df = data_dict['ripple']['NF7'].iloc[:, :2].copy()
+                    lfp_df = data_dict['ripple']['NF7'].copy()
                     del data_dict['ripple']['NF7']
                     gc.collect()
                     lfp_signals = lfp_df.to_numpy()
@@ -302,14 +303,26 @@ def visualize_dataset(
                         lfp_signals, lfp_sample_rate, t_start, channel_names=lfp_df.columns)
                     lfp_signals_view = ephyviewer.TraceViewer(source=lfp_signals_source, name=f'block_{block_idx:0>2d}_lfp')
                     lfp_signals_view.params_controller.on_automatic_color(cmap_name='Set3')
+                    
+                    #create a SpectrogramViewer on the same source
+                    lfp_spectrogram_view = ephyviewer.SpectrogramViewer(source=lfp_signals_source, name=f'block_{block_idx:0>2d}_lfp_spectrogram')
+
+                    lfp_spectrogram_view.params['colormap'] = 'inferno'
+                    lfp_spectrogram_view.params['scalogram', 'binsize'] = .1
+                    lfp_spectrogram_view.params['scalogram', 'scale'] = 'dB'
+                    lfp_spectrogram_view.params['scalogram', 'scaling'] = 'spectrum'
+
                     if idx_into_list == 0:
                         win.add_view(lfp_signals_view, split_with=top_level_emg_view, orientation='vertical')
                         top_level_lfp_view = f'block_{block_idx:0>2d}_lfp'
+                        win.add_view(lfp_spectrogram_view, split_with=top_level_emg_view, orientation='vertical')
+                        top_level_lfp_spectrogram_view = f'block_{block_idx:0>2d}_lfp_spectrogram'
                     else:
                         win.add_view(lfp_signals_view, tabify_with=top_level_lfp_view)
+                        win.add_view(lfp_spectrogram_view, tabify_with=top_level_lfp_spectrogram_view)
             if 'NS5' in data_dict['ripple']:
                 if data_dict['ripple']['NS5'] is not None:
-                    lfp_df = data_dict['ripple']['NS5'].iloc[:, :2].copy()
+                    lfp_df = data_dict['ripple']['NS5'].copy()
                     del data_dict['ripple']['NS5']
                     gc.collect()
                     lfp_signals = lfp_df.to_numpy()
@@ -436,12 +449,12 @@ def visualize_dataset(
 if __name__ == '__main__':
     # folder_name = "Day12_PM"
     # list_of_blocks = [4]
-    folder_name = "Day8_AM"
-    list_of_blocks = [4]
+    # folder_name = "Day8_AM"
+    # list_of_blocks = [4]
     # folder_name = "Day11_AM"
     # list_of_blocks = [4]
-    # folder_name = "Day11_PM"
-    # list_of_blocks = [2]
+    folder_name = "Day11_PM"
+    list_of_blocks = [2]
     # folder_name = "Day12_AM"
     # list_of_blocks = [3]
     visualize_dataset(folder_name, list_of_blocks=list_of_blocks)

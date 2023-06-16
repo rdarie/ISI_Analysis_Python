@@ -121,14 +121,14 @@ def _handle_hdf5_dataset(hdf5_object):
 
     matlab_class = hdf5_object.attrs.get('MATLAB_class', b'unknown').decode()
 
-    if matlab_class not in standard_matlab_classes:
+    '''if matlab_class not in standard_matlab_classes:
         warn('Complex objects (like classes) are not supported. '
              'They are imported on a best effort base '
-             'but your mileage will vary.')
+             'but your mileage will vary.')'''
 
     if matlab_class == 'string':
-        warn('pymatreader cannot import Matlab string variables. '
-             'Please convert these variables to char arrays in Matlab.')
+        # warn('pymatreader cannot import Matlab string variables. '
+        #      'Please convert these variables to char arrays in Matlab.')
         return None
 
     if isinstance(data, numpy.ndarray) and \
@@ -224,15 +224,15 @@ def _check_for_scipy_mat_struct(data):
     if isinstance(data, MatlabOpaque):
         try:
             if data[0][2] == b'string':
-                warn('pymatreader cannot import Matlab string variables. '
-                     'Please convert these variables to char arrays '
-                     'in Matlab.')
+                # warn('pymatreader cannot import Matlab string variables. '
+                #      'Please convert these variables to char arrays '
+                #      'in Matlab.')
                 return None
         except IndexError:
             pass
-        warn('Complex objects (like classes) are not supported. '
-             'They are imported on a best effort base '
-             'but your mileage will vary.')
+        # warn('Complex objects (like classes) are not supported. '
+        #      'They are imported on a best effort base '
+        #      'but your mileage will vary.')
 
     if isinstance(data, numpy.ndarray):
         data = _handle_scipy_ndarray(data)

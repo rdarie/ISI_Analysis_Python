@@ -1,26 +1,22 @@
 name: isi_analysis
-channels:
-- conda-forge
-- defaults
 dependencies:
-- python==3.8*
+- python=3.9.*
 - pip
 - line_profiler
-- tzlocal
-- pytables
 - docopt
 - dill
 - numpy
-- imbalanced-learn
+- scipy
 - pandas
 - pandas-flavor
+- imbalanced-learn
 - h5py
 - lmfit
 - matplotlib
+- seaborn
 - psutil
 - opencv
 - hdbscan
-- scipy
 - patsy
 - nose
 - statsmodels
@@ -36,10 +32,21 @@ dependencies:
 - pyarrow
 - python-snappy
 - datashader
+- bokeh
 - holoviews
 - pynndescent
 - outdated
 - tabulate
 - numdifftools
 - sklearn-pandas
-- seaborn
+- ephyviewer
+- neurotic
+- python-neo
+- pynwb
+- mne
+- fooof
+- palettable
+- pip:
+  - git+https://github.com/NeuralEnsemble/elephant.git@v0.12.0#egg=elephant
+  - git+https://github.com/lace/vg.git@2.0.0#egg=vg
+  - git+https://github.com/pyqtgraph/pyqtgraph.git@pyqtgraph-0.11.1#egg=pyqtgraph
