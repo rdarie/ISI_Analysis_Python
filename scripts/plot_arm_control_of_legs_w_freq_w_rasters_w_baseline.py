@@ -89,17 +89,17 @@ for rcK, rcV in mplRCParams.items():
 
 plots_dt = int(1e3)  # usec
 
-folder_name = "Day8_AM"
-block_idx = 4
-this_emg_montage = emg_montages['lower']
+# folder_name = "Day8_AM"
+# block_idx = 4
+# this_emg_montage = emg_montages['lower']
 
 # folder_name = "Day12_PM"
 # block_idx = 4
 # this_emg_montage = emg_montages['lower_v2']
 
-# folder_name = "Day11_AM"
-# block_idx = 4
-# this_emg_montage = emg_montages['lower_v2']
+folder_name = "Day11_AM"
+block_idx = 4
+this_emg_montage = emg_montages['lower_v2']
 
 if folder_name in ['Day11_AM']:
     angles_dict = {
@@ -539,7 +539,11 @@ for ts_idx, timestamp in enumerate(align_timestamps):
         this_mask = (np.asarray(emg_df.index) >= timestamp + left_sweep - nominal_emg_dt / 2) & (np.asarray(emg_df.index) < timestamp + right_sweep + sweep_offset + nominal_emg_dt / 2)
         if verbose > 1:
             print(f'this_mask.sum() = {this_mask.sum()}')
-    stim_metadata = tuple(stim_info_df.loc[timestamp, metadata_fields])
+    stim_metadata_pandas = stim_info_df.loc[timestamp, metadata_fields]
+    if isinstance(stim_metadata_pandas, pd.Series):
+        stim_metadata = tuple(stim_info_df.loc[timestamp, metadata_fields])
+    elif isinstance(stim_metadata_pandas, pd.DataFrame):
+        stim_metadata = tuple(stim_info_df.loc[timestamp, metadata_fields].iloc[0, :])
     this_entry = (timestamp,) + stim_metadata
     all_emg_dict[this_entry] = pd.DataFrame(
         emg_df.loc[this_mask, :].to_numpy(),
@@ -667,6 +671,23 @@ side_label_opts = dict(
     rotation_mode='anchor'
     )
 
+
+###################################################################################################
+## export for github share
+data_folder = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
+emg_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_emg_share.parquet")
+aligned_emg_df.to_parquet(emg_share_path)
+if show_envelope:
+    envelope_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_envelope_share.parquet")
+    aligned_envelope_df.to_parquet(envelope_share_path)
+spikes_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_spikes_share.parquet")
+aligned_spikes_df.to_parquet(spikes_share_path)
+kin_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_kin_share.parquet")
+aligned_kin_df.to_parquet(kin_share_path)
+if has_audible_timing:
+    audible_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_audible_share.parquet")
+    aligned_audible_df.to_parquet(audible_share_path)
+###################################################################################################
 show_raw_emg = True
 baseline_dur = 3.
 show_plots = True

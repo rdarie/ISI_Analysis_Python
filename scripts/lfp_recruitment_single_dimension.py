@@ -78,12 +78,12 @@ for rcK, rcV in mplRCParams.items():
 
 # folder_name = "Day2_AM"
 # blocks_list = [3]
-# this_emg_montage = emg_montages['lower']
+# this_lfp_montage = emg_montages['lower']
 # folder_name = "Day12_PM"
 # blocks_list = [4]
 folder_name = "Day11_PM"
 blocks_list = [2, 3]
-this_emg_montage = emg_montages['lower_v2']
+this_lfp_montage = emg_montages['lower_v2']
 # folder_name = "Day8_AM"
 # blocks_list = [1, 2, 3, 4]
 
@@ -97,19 +97,19 @@ blocks_list_str = '_'.join(f"{block_idx}" for block_idx in blocks_list)
 
 x_axis_name = 'freq_late'
 if x_axis_name == 'freq':
-    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_recruitment_freq.pdf")
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_lfp_recruitment_freq.pdf")
     left_sweep = 0
     right_sweep = int(0.4 * 1e6)
-    amp_cutoff = 9e3
+    amp_cutoff = 10e3
 elif x_axis_name == 'freq_late':
-    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_recruitment_freq_late.pdf")
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_lfp_recruitment_freq_late.pdf")
     left_sweep = int(0.1 * 1e6)
     right_sweep = int(0.4 * 1e6)
-    amp_cutoff = 9e3
+    amp_cutoff = 10e3
 elif x_axis_name == 'amp':
-    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_emg_recruitment_amp.pdf")
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_lfp_recruitment_amp.pdf")
     left_sweep = 0
-    right_sweep = int(0.075 * 1e6)
+    right_sweep = int(0.1 * 1e6)
     freq_cutoff = 10
 
 filterOptsNotch = {
@@ -133,21 +133,21 @@ filterOptsPost = {
 }
 
 verbose = 2
-standardize_emg = True
+standardize_lfp = True
 normalize_across = False
 
 all_stim_info = {}
-all_aligned_emg = {}
+all_aligned_lfp = {}
 
 parquet_folder = data_path / "parquets"
 reprocess_raw = False
 save_parquets = True
 
 for block_idx in blocks_list:
-    emg_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_emg_df.parquet"
+    lfp_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_lfp_df.parquet"
     stim_info_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_stim_info_df.parquet"
     file_path = data_path / f"Block{block_idx:0>4d}_Synced_Session_Data.mat"
-    if (not os.path.exists(emg_parquet_path)) or reprocess_raw:
+    if (not os.path.exists(lfp_parquet_path)) or reprocess_raw:
         data_dict = load_synced_mat(
             file_path,
             load_stim_info=True, split_trains=True, stim_info_traces=False, force_trains=True,
@@ -155,47 +155,47 @@ for block_idx in blocks_list:
             load_ripple=True, ripple_variable_names=['NEV'], ripple_as_df=True,
         )
         if data_dict['vicon'] is not None:
-            this_emg = data_dict['vicon']['EMG'].copy()
-            this_emg.rename(columns=this_emg_montage, inplace=True)
-            this_emg.drop(columns=['NA'], inplace=True)
+            this_lfp = data_dict['vicon']['EMG'].copy()
+            this_lfp.rename(columns=this_lfp_montage, inplace=True)
+            this_lfp.drop(columns=['NA'], inplace=True)
         if data_dict['stim_info'] is not None:
             all_stim_info[block_idx] = data_dict['stim_info']
 
             if save_parquets:
                 if not os.path.exists(parquet_folder):
                     os.makedirs(parquet_folder)
-                this_emg.to_parquet(emg_parquet_path)
+                this_lfp.to_parquet(lfp_parquet_path)
                 all_stim_info[block_idx].to_parquet(stim_info_parquet_path)
     else:
-        this_emg = pd.read_parquet(emg_parquet_path)
+        this_lfp = pd.read_parquet(lfp_parquet_path)
         all_stim_info[block_idx] = pd.read_parquet(stim_info_parquet_path)
 
-    if standardize_emg:
-        emg_scaler_path = data_path / "pickles" / "emg_scaler.p"
-        with open(emg_scaler_path, 'rb') as handle:
+    if standardize_lfp:
+        lfp_scaler_path = data_path / "pickles" / "lfp_scaler.p"
+        with open(lfp_scaler_path, 'rb') as handle:
             scaler = pickle.load(handle)
-        this_emg.loc[:, :] = scaler.transform(this_emg)
+        this_lfp.loc[:, :] = scaler.transform(this_lfp)
 
     align_timestamps = all_stim_info[block_idx].index.get_level_values('timestamp_usec')
     aligned_dfs = {}
-    analog_time_vector = np.asarray(this_emg.index)
+    analog_time_vector = np.asarray(this_lfp.index)
     nominal_dt = np.int64(np.median(np.diff(analog_time_vector)))
-    emg_sample_rate = np.round((nominal_dt * 1e-6) ** -1)
+    lfp_sample_rate = np.round((nominal_dt * 1e-6) ** -1)
     epoch_t = np.arange(left_sweep, right_sweep, nominal_dt)
     nominal_num_samp = epoch_t.shape[0]
 
-    filterCoeffsNotch = makeFilterCoeffsSOS(filterOptsNotch.copy(), emg_sample_rate)
-    this_emg = pd.DataFrame(
-        signal.sosfiltfilt(filterCoeffsNotch, this_emg, axis=0),
-        index=this_emg.index, columns=this_emg.columns)
+    filterCoeffsNotch = makeFilterCoeffsSOS(filterOptsNotch.copy(), lfp_sample_rate)
+    this_lfp = pd.DataFrame(
+        signal.sosfiltfilt(filterCoeffsNotch, this_lfp, axis=0),
+        index=this_lfp.index, columns=this_lfp.columns)
 
     if len(filterOptsPost):
-        filterCoeffsPost = makeFilterCoeffsSOS(filterOptsPost.copy(), emg_sample_rate)
-        this_emg = pd.DataFrame(
-            signal.sosfiltfilt(filterCoeffsPost, (this_emg - this_emg.mean()).abs(), axis=0),
-            index=this_emg.index, columns=this_emg.columns)
+        filterCoeffsPost = makeFilterCoeffsSOS(filterOptsPost.copy(), lfp_sample_rate)
+        this_lfp = pd.DataFrame(
+            signal.sosfiltfilt(filterCoeffsPost, (this_lfp - this_lfp.mean()).abs(), axis=0),
+            index=this_lfp.index, columns=this_lfp.columns)
     else:
-        this_emg = (this_emg - this_emg.mean()).abs()
+        this_lfp = (this_lfp - this_lfp.mean()).abs()
 
     print(f'Epoching EMG from \n\t{file_path}')
     for timestamp in tqdm(align_timestamps.to_numpy()):
@@ -213,9 +213,9 @@ for block_idx in blocks_list:
             if verbose > 1:
                 print(f'this_mask.sum() = {this_mask.sum()}')
         aligned_dfs[timestamp] = pd.DataFrame(
-            this_emg.loc[this_mask, :].to_numpy(),
-            index=epoch_t, columns=this_emg.columns)
-    all_aligned_emg[block_idx] = pd.concat(aligned_dfs, names=['timestamp_usec', 'time_usec'])
+            this_lfp.loc[this_mask, :].to_numpy(),
+            index=epoch_t, columns=this_lfp.columns)
+    all_aligned_lfp[block_idx] = pd.concat(aligned_dfs, names=['timestamp_usec', 'time_usec'])
 
 stim_info_df = pd.concat(all_stim_info, names=['block', 'timestamp_usec'])
 stim_info_df.loc[:, 'elecConfig_str'] = stim_info_df.apply(lambda x: f'-{x["elecCath"]}+{x["elecAno"]}', axis='columns')
@@ -247,45 +247,45 @@ for a, b in config_lookup.items():
 def reorder_fun(config_strings):
     return pd.Index([reordered_elecs.index(name) for name in config_strings], name=config_strings.name)
 
-emg_df = pd.concat(all_aligned_emg, names=['block', 'timestamp_usec', 'time_usec'])
-emg_df.drop(['L Forearm', 'R Forearm', 'Sync'], axis='columns', inplace=True)
+lfp_df = pd.concat(all_aligned_lfp, names=['block', 'timestamp_usec', 'time_usec'])
+lfp_df.drop(['L Forearm', 'R Forearm', 'Sync'], axis='columns', inplace=True)
 
 '''
-del aligned_dfs, all_aligned_emg, all_stim_info
+del aligned_dfs, all_aligned_lfp, all_stim_info
 gc.collect()
 g = sns.displot(data=stim_info_df, x='delta_timestamp_usec', rug=True, element='step', fill=False)
 plt.show()
 '''
-emg_metadata = emg_df.index.to_frame()
+lfp_metadata = lfp_df.index.to_frame()
 recruitment_keys = ['elecConfig_str', 'amp', 'freq']
 
 for meta_key in recruitment_keys:
-    emg_metadata.loc[:, meta_key] = emg_df.index.copy().droplevel('time_usec').map(stim_info_df[meta_key]).to_numpy()
-emg_df.index = pd.MultiIndex.from_frame(emg_metadata)
+    lfp_metadata.loc[:, meta_key] = lfp_df.index.copy().droplevel('time_usec').map(stim_info_df[meta_key]).to_numpy()
+lfp_df.index = pd.MultiIndex.from_frame(lfp_metadata)
 
 #### outlier removal
-auc_per_trial = emg_df.groupby(['block', 'timestamp_usec']).mean()
+auc_per_trial = lfp_df.groupby(['block', 'timestamp_usec']).mean()
 auc_bar, auc_std = np.mean(auc_per_trial.to_numpy().flatten()), np.std(auc_per_trial.to_numpy().flatten())
 n_std = 9
 outlier_bounds = (auc_bar - n_std * auc_std, auc_bar + n_std * auc_std)
 outlier_mask_per_trial = (auc_per_trial < outlier_bounds[0]) | (auc_per_trial > outlier_bounds[1])
 outlier_mask_per_trial = outlier_mask_per_trial.any(axis='columns')
 outlier_trials = outlier_mask_per_trial.index[outlier_mask_per_trial]
-outlier_mask = pd.MultiIndex.from_frame(emg_metadata.loc[:, ['block', 'timestamp_usec']]).isin(outlier_trials)
+outlier_mask = pd.MultiIndex.from_frame(lfp_metadata.loc[:, ['block', 'timestamp_usec']]).isin(outlier_trials)
 #
-emg_df = emg_df.loc[~outlier_mask, :]
+lfp_df = lfp_df.loc[~outlier_mask, :]
 ####
 if x_axis_name in ['freq', 'freq_late']:
     # remove amp <= cutoff
     stim_info_df = stim_info_df.loc[stim_info_df['amp'] >= amp_cutoff, :]
-    emg_df = emg_df.loc[emg_df.index.get_level_values('amp') >= amp_cutoff, :]
+    lfp_df = lfp_df.loc[lfp_df.index.get_level_values('amp') >= amp_cutoff, :]
 elif x_axis_name == 'amp':
     # remove freq >= cutoff
     stim_info_df = stim_info_df.loc[stim_info_df['freq'] <= freq_cutoff, :]
-    emg_df = emg_df.loc[emg_df.index.get_level_values('freq') <= freq_cutoff, :]
+    lfp_df = lfp_df.loc[lfp_df.index.get_level_values('freq') <= freq_cutoff, :]
 
 #
-auc_df = emg_df.groupby(recruitment_keys + ['block', 'timestamp_usec']).mean()
+auc_df = lfp_df.groupby(recruitment_keys + ['block', 'timestamp_usec']).mean()
 # temp_average_auc = auc_df.groupby(recruitment_keys).mean()
 
 if normalize_across:

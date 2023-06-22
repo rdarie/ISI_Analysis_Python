@@ -58,7 +58,6 @@ def sanitize_stim_info(
     si.loc[:, 'original_timestamp_usec'] = si['timestamp_usec'].copy()
     #
     all_spike_times = nev_spikes['time_usec'].copy()
-    # pdb.set_trace()
     is_first_spike = (all_spike_times.diff() > 2e5)  # more than 200 msec / 5 Hz
     is_first_spike.iloc[0] = True  # first spike in recording is first in train
     if calc_rank_in_train:

@@ -74,6 +74,13 @@ sns.set(
 for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
+def adjust_channel_name(cn):
+    signal_type, ch_num_str = cn.split(' ')
+    elec = int(ch_num_str)
+    if elec < 128:
+        return f"ch {elec} (caudal)"
+    else:
+        return f"ch {elec - 128} (rostral)"
 
 def visualize_dataset(
         folder_name, list_of_blocks=[4]):
@@ -99,8 +106,8 @@ def visualize_dataset(
         data_dict = load_synced_mat(
             file_path,
             load_stim_info=True, split_trains=True, stim_info_traces=False, force_trains=True,
-            load_ripple=True, ripple_variable_names=['NEV', 'TimeCode'], ripple_as_df=True,  # 'NS5', 'TimeCode'
-            load_vicon=True, vicon_as_df=True, vicon_variable_names=['EMG', 'Points'], interpolate_emg=True, kinematics_time_offset=this_kin_offset,  # , 'Points'
+            load_ripple=True, ripple_variable_names=['NEV', 'NF7', 'TimeCode'], ripple_as_df=True,  # 'NS5', 'TimeCode'
+            load_vicon=True, vicon_as_df=True, vicon_variable_names=['EMG'], interpolate_emg=True, kinematics_time_offset=this_kin_offset,  # , 'Points'
             load_all_logs=False, verbose=1
             )
         # TODO: fix error when loading lfp
@@ -207,6 +214,8 @@ def visualize_dataset(
                     win.add_view(emg_signals_view, tabify_with=top_level_emg_view)
         if data_dict.get('stim_info', None) is not None:
             data_dict['stim_info'].loc[:, 'elecConfig_str'] = data_dict['stim_info'].apply(lambda x: f'-{x["elecCath"]}+{x["elecAno"]}', axis='columns')
+            # pdb.set_trace()
+            data_dict['stim_info'].index = data_dict['stim_info'].index + data_dict['stim_info']['pulseWidth'].to_numpy() * 4
             these_events_list = []
             stim_event_dict = {
                 'label': data_dict['stim_info'].apply(
@@ -291,7 +300,9 @@ def visualize_dataset(
                     win.add_view(spike_view, tabify_with=top_level_spike_view)
             if 'NF7' in data_dict['ripple']:
                 if data_dict['ripple']['NF7'] is not None:
-                    lfp_df = data_dict['ripple']['NF7'].iloc[:, :2].copy()
+                    # lfp_df = data_dict['ripple']['NF7'].iloc[:, :2].copy()
+                    lfp_df = data_dict['ripple']['NF7'].copy()
+                    lfp_df.columns = [adjust_channel_name(cn) for cn in lfp_df.columns]
                     del data_dict['ripple']['NF7']
                     gc.collect()
                     lfp_signals = lfp_df.to_numpy()
@@ -435,12 +446,12 @@ def visualize_dataset(
 if __name__ == '__main__':
     # folder_name = "Day12_PM"
     # list_of_blocks = [4]
-    folder_name = "Day8_AM"
-    list_of_blocks = [4]
+    # folder_name = "Day8_AM"
+    # list_of_blocks = [4]
     # folder_name = "Day11_AM"
     # list_of_blocks = [4]
-    # folder_name = "Day11_PM"
-    # list_of_blocks = [2]
+    folder_name = "Day11_PM"
+    list_of_blocks = [2]
     # folder_name = "Day12_AM"
     # list_of_blocks = [3]
     visualize_dataset(folder_name, list_of_blocks=list_of_blocks)
