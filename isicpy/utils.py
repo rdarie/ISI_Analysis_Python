@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from copy import deepcopy
 import traceback
+from collections.abc import Iterable
 
 # function to load table variable from MAT-file
 # based on https://stackoverflow.com/questions/25853840/load-matlab-tables-in-python-using-scipy-io-loadmat
@@ -45,11 +46,30 @@ def sanitize_stim_info(
         si, nev_spikes,
         split_trains=True, force_trains=False,
         calc_rank_in_train=False, remove_zero_amp=True):
+    ####################################################################################################################
+    # handle updatse applied to multiple electrode configurations simultaneously, i.e. rows that reference multiple
+    # amplitudes
+    indexes_to_replace = []
+    new_entries = []
+    for row_idx, row in si.iterrows():
+        if isinstance(row['amp'], Iterable):
+            indexes_to_replace.append(row_idx)
+            for idx in range(len(row['amp'])):
+                new_row = row.copy()
+                for col_name in ['elecCath', 'elecAno', 'amp', 'freq', 'pulseWidth', 'isContinuous']:
+                    new_row.loc[col_name] = row[col_name][idx]
+                new_entries.append(new_row)
+    if len(new_entries):
+        new_entries_df = pd.concat(new_entries, axis='columns').T
+        si.drop(index=indexes_to_replace, inplace=True)
+        si = pd.concat([si, new_entries_df], ignore_index=True)
+        si.sort_values(by='nipTime', inplace=True)
+    ####################################################################################################################
     for col_name in ['elecCath', 'elecAno']:
         si.loc[:, col_name] = si[col_name].apply(sanitize_elec_config)
     for col_name in ['amp', 'freq', 'pulseWidth', 'res', 'nipTime']:
         si.loc[:, col_name] = si[col_name].astype(np.int64)
-    si.loc[:, 'timestamp_usec'] = np.asarray(np.round(si['time'], 6) * 1e6, dtype=np.int64)
+    si.loc[:, 'timestamp_usec'] = np.asarray(np.round(si['time'].astype(float), 6) * 1e6, dtype=np.int64)
     if force_trains:
         si.loc[:, 'isContinuous'] = False
     # align to stim onset
@@ -272,10 +292,11 @@ def load_synced_mat(
             waveform_df = pd.DataFrame(just_nev['NEV']['Data']['Spikes'].pop('Waveform'))
             nev_spikes = pd.DataFrame(just_nev['NEV']['Data']['Spikes'])
             if verbose > 0:
-                print("\tret_dict['stim_info'] = sanitize_stim_info(oadtablefrommat(ret_dict['stim_info']), nev_spikes,...")
+                print("\tret_dict['stim_info'] = sanitize_stim_info(loadtablefrommat(ret_dict['stim_info']), nev_spikes,...")
             ret_dict['stim_info'] = sanitize_stim_info(
                 loadtablefrommat(ret_dict['stim_info']), nev_spikes,
-                split_trains=split_trains, force_trains=force_trains)
+                split_trains=split_trains, force_trains=force_trains
+                )
             if stim_info_traces:
                 if verbose > 0:
                     print("hdf5todict(hdf5_file['Synced_Session_Data']['StimInfo'])\t(for traces)")

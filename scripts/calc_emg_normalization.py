@@ -13,16 +13,18 @@ import cloudpickle as pickle
 from sklearn.preprocessing import StandardScaler
 
 this_emg_montage = emg_montages['lower']
-# data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day12_PM")
-# blocks_list = [1, 2, 3, 4]
-# data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day11_PM")
-# blocks_list = [2, 3]
+# data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day2_AM")
+# blocks_list = [3]
+data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day7_AM")
+blocks_list = [4]
 # data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day8_AM")
 # blocks_list = [3, 4]
+# data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day11_PM")
+# blocks_list = [2, 3]
 # data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day12_AM")
 # blocks_list = [2, 3]
-data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day2_AM")
-blocks_list = [3]
+# data_path = Path("/users/rdarie/scratch/3_Preprocessed_Data/Day12_PM")
+# blocks_list = [1, 2, 3, 4]
 
 all_emg = {}
 for block_idx in tqdm(blocks_list):

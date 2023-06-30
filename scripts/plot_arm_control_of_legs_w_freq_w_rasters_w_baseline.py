@@ -87,19 +87,23 @@ sns.set(
 for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
-plots_dt = int(1e3)  # usec
+plots_dt = int(1e3)  #  usec
+
+folder_name = "Day7_AM"
+block_idx = 4
+this_emg_montage = emg_montages['lower']
 
 # folder_name = "Day8_AM"
 # block_idx = 4
 # this_emg_montage = emg_montages['lower']
 
-# folder_name = "Day12_PM"
+# folder_name = "Day11_AM"
 # block_idx = 4
 # this_emg_montage = emg_montages['lower_v2']
 
-folder_name = "Day11_AM"
-block_idx = 4
-this_emg_montage = emg_montages['lower_v2']
+# folder_name = "Day12_PM"
+# block_idx = 4
+# this_emg_montage = emg_montages['lower_v2']
 
 if folder_name in ['Day11_AM']:
     angles_dict = {
@@ -123,8 +127,8 @@ elif folder_name in ['Day8_AM', 'Day12_PM']:
         }
 
 data_path = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
-
 pdf_folder = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/5_Figures/{folder_name}")
+
 if not os.path.exists(pdf_folder):
     os.makedirs(pdf_folder)
 pdf_path = pdf_folder / Path(f"{folder_name}_Block_{block_idx}_arm_ctrl_legs_freq_rasters.pdf")
@@ -167,7 +171,7 @@ all_electrodes_across_experiments = [
     "-(27,)+(26,)", "-(139,)+(131,)", "-(136,)+(144,)",
     "-(131,)+(130,)", "-(155,)+(154,)"]
 
-if folder_name in ['Day8_AM']:
+if folder_name in ['Day7_AM', 'Day8_AM']:
     # for day8_AM block 4:
     # stim_info_df.index[stim_info_df.index > 30800000]
     # plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
@@ -491,23 +495,26 @@ dummy_stim_info_entry = {
      'delta_timestamp_usec': 0,
      'elecConfig_str': '-(0,)+(0,)',
      'elecAll': (0,)
-}
+    }
 stim_info_df.loc[baseline_timestamps[0], :] = dummy_stim_info_entry
 
 if show_envelope:
     # filterCoeffsEnv = makeFilterCoeffsSOS(filterOptsEnvelope.copy(), emg_sample_rate)
     '''envelope_df = pd.DataFrame(
         signal.sosfiltfilt(filterCoeffsEnv, emg_df.abs(), axis=0),
-        index=emg_df.index, columns=emg_df.columns)'''
+        index=emg_df.index, columns=emg_df.columns)
+        '''
     '''envelope_df = pd.DataFrame(
         signal.sosfiltfilt(filterCoeffsEnv, emg_df ** 2, axis=0),
         index=emg_df.index, columns=emg_df.columns)
     envelope_df.clip(lower=0, inplace=True)
-    envelope_df.loc[:, :] = np.sqrt(envelope_df)'''
+    envelope_df.loc[:, :] = np.sqrt(envelope_df)
+    '''
     '''envelope_df = pd.DataFrame(
         # np.abs(signal.hilbert(emg_df, axis=0)),
         signal.sosfiltfilt(filterCoeffsEnv, np.abs(signal.hilbert(emg_df, axis=0)), axis=0),
-        index=emg_df.index, columns=emg_df.columns)'''
+        index=emg_df.index, columns=emg_df.columns)
+        '''
     envelope_df = pd.DataFrame(emg_df ** 2, index=emg_df.index, columns=emg_df.columns)
     window = int((filterOptsEnvelope['low']['Wn'] ** -1) / (emg_sample_rate ** -1))
     envelope_df = envelope_df.rolling(window, center=True).mean().fillna(0)
@@ -674,6 +681,7 @@ side_label_opts = dict(
 
 ###################################################################################################
 ## export for github share
+
 data_folder = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
 emg_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_emg_share.parquet")
 aligned_emg_df.to_parquet(emg_share_path)

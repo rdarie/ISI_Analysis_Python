@@ -62,8 +62,6 @@ emg_hue_map = {
     nm: c for nm, c in zip(paired_emg_labels, emg_palette)
 }
 
-
-
 muscle_names = {
     'LVL': 'vastus',
     'LMH': 'hamstring',
@@ -78,6 +76,15 @@ muscle_names = {
     'RSOL': 'soleus',
     'R Forearm': 'forearm'
 }
+
+# left side only for now
+# arm_ctrl_points_epochs = {
+#     'Day8_AM':
+#         {
+#             1: [(659710750, 675300750), (675300750, 696780750), (842000750, 863560750)],
+#             2: [(12449750, 27259750), (27259750, 48929750), (460029750, 480869750), (480869750, 503209750), ]
+#         }
+# }
 kinematics_offsets = {
     'Day11_AM': {
         1: 0.,
@@ -95,9 +102,19 @@ kinematics_offsets = {
     },
     'Day8_AM': {
         4: 0.9
+    },
+    'Day7_AM': {
+        4: 0.9
     }
 }
 video_info = {
+    'Day7_AM': {
+        4: {
+            'paths': [],
+            'start_timestamps': [],
+            'rollovers': [],
+        }
+    },
     'Day8_AM': {
         4: {
             'paths': ['/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day08_AM_Cam2_GH010042.mp4'],
@@ -153,7 +170,7 @@ video_info = {
                 '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day12_PM_Cam2_GH010047_Masked.mp4',
                 '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day12_PM_Cam3.mp4',
                 ],
-            'start_timestamps': ['02:36:10:16', '02:17:20:02', '02:17:47:27',],
+            'start_timestamps': ['02:36:10:16', '02:17:20:02', '02:17:47:27', ],
             'rollovers': [False, False, False],
             # '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day12_PM_Cam2_2.mp4', '04:02:37:05'
         }

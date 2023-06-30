@@ -70,7 +70,7 @@ sns.set(
     context='talk', style='white',
     palette='dark', font='sans-serif',
     font_scale=2, color_codes=True, rc=snsRCParams
-)
+    )
 for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
@@ -87,27 +87,28 @@ def visualize_dataset(
     app = ephyviewer.mkQApp()
     win = ephyviewer.MainViewer(debug=False)
     verbose = 0
-    data_path = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
-    this_emg_montage = emg_montages['lower_v2']
+    data_path = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/3_Preprocessed_Data/{folder_name}")
+    this_emg_montage = emg_montages['lower']
     filterOpts = {
         'low': {
             'Wn': 250.,
             'N': 4,
             'btype': 'low',
             'ftype': 'butter'
+            }
         }
-    }
     for idx_into_list, block_idx in enumerate(list_of_blocks):
         file_path = data_path / f"Block{block_idx:0>4d}_Synced_Session_Data.mat"
         try:
             this_kin_offset = kinematics_offsets[folder_name][block_idx]
-        except:
+        except Exception:
             this_kin_offset = 0
         data_dict = load_synced_mat(
             file_path,
-            load_stim_info=True, split_trains=True, stim_info_traces=False, force_trains=True,
-            load_ripple=True, ripple_variable_names=['NEV', 'NF7', 'TimeCode'], ripple_as_df=True,  # 'NS5', 'TimeCode'
-            load_vicon=True, vicon_as_df=True, vicon_variable_names=['EMG'], interpolate_emg=True, kinematics_time_offset=this_kin_offset,  # , 'Points'
+            load_stim_info=True, split_trains=True, stim_info_traces=True, force_trains=False,
+            load_ripple=True, ripple_as_df=True, ripple_variable_names=['NEV', 'NS5', 'TimeCode'],  # 'NS5', 'NF7', 'TimeCode'
+            load_vicon=True, vicon_as_df=True, interpolate_emg=True, kinematics_time_offset=this_kin_offset,
+            vicon_variable_names=['EMG', 'Points'],  # 'Points'
             load_all_logs=False, verbose=1
             )
         # TODO: fix error when loading lfp
@@ -123,7 +124,7 @@ def visualize_dataset(
                 print(f"First video timecode is {video_timecode}")
                 video_path = video_info[folder_name][block_idx]['paths'][video_idx]
                 rollover = video_info[folder_name][block_idx]['rollovers'][video_idx]
-                ## synch based on stream info
+                # synch based on stream info
                 with av.open(video_path) as _file_stream:
                     video_stream = next(s for s in _file_stream.streams if s.type == 'video')
                     if video_stream.average_rate.denominator and video_stream.average_rate.numerator:
@@ -197,7 +198,7 @@ def visualize_dataset(
             if 'EMG' in data_dict['vicon']:
                 emg_df = data_dict['vicon']['EMG'].copy()
                 emg_df.rename(columns=this_emg_montage, inplace=True)
-                emg_df.drop(columns=['NA'], inplace=True)
+                emg_df.drop(columns=['NA', 'L Forearm', 'R Forearm'], inplace=True)
                 emg_sample_rate = np.median(np.diff(emg_df.index.get_level_values('time_usec') * 1e-6)) ** -1
                 # filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
                 # emg_signals = signal.sosfiltfilt(filterCoeffs, (emg_df - emg_df.mean()).abs(), axis=0)
@@ -222,14 +223,14 @@ def visualize_dataset(
                     lambda x: f'\n{x["elecConfig_str"]}\nAmp: {x["amp"]}\nFreq: {x["freq"]}', axis='columns').to_numpy(),
                 'time': (data_dict['stim_info'].index.get_level_values('timestamp_usec') * 1e-6).to_numpy(),
                 'name': f'block_{block_idx:0>2d}_stim_info'
-            }
+                }
             these_events_list.append(stim_event_dict)
             if True:
                 stim_event_original_dict = {
                     'label': data_dict['stim_info'].apply(lambda x: f'\n{x["elecConfig_str"]}\nAmp: {x["amp"]}\nFreq: {x["freq"]}', axis='columns').to_numpy(),
                     'time': (data_dict['stim_info']['original_timestamp_usec'] * 1e-6).to_numpy(),
                     'name': f'block_{block_idx:0>2d}_original_stim_info'
-                }
+                    }
                 these_events_list.append(stim_event_original_dict)
             event_source = ephyviewer.InMemoryEventSource(all_events=these_events_list)
             event_view = ephyviewer.EventList(source=event_source, name=f'block_{block_idx:0>2d}_stim_info')
@@ -238,7 +239,6 @@ def visualize_dataset(
                 top_level_event_view = f'block_{block_idx:0>2d}_stim_info'
             else:
                 win.add_view(event_view, tabify_with=top_level_event_view)
-        # pdb.set_trace()
         if 'stim_info_traces' in data_dict:
             if data_dict['stim_info_traces'] is not None:
                 stim_info_trace_df = pd.concat(data_dict['stim_info_traces'], names=['feature'], axis='columns')
@@ -444,14 +444,16 @@ def visualize_dataset(
 
 
 if __name__ == '__main__':
+    # folder_name = "Day7_AM"
+    # list_of_blocks = [4]
     # folder_name = "Day12_PM"
     # list_of_blocks = [4]
-    # folder_name = "Day8_AM"
-    # list_of_blocks = [4]
+    folder_name = "Day8_AM"
+    list_of_blocks = [3]
     # folder_name = "Day11_AM"
     # list_of_blocks = [4]
-    folder_name = "Day11_PM"
-    list_of_blocks = [2]
+    # folder_name = "Day11_PM"
+    # list_of_blocks = [2]
     # folder_name = "Day12_AM"
     # list_of_blocks = [3]
     visualize_dataset(folder_name, list_of_blocks=list_of_blocks)
