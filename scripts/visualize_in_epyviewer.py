@@ -83,12 +83,11 @@ def adjust_channel_name(cn):
         return f"ch {elec - 128} (rostral)"
 
 def visualize_dataset(
-        folder_name, list_of_blocks=[4]):
+        folder_name, list_of_blocks=[4], this_emg_montage=None):
     app = ephyviewer.mkQApp()
     win = ephyviewer.MainViewer(debug=False)
     verbose = 0
     data_path = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/3_Preprocessed_Data/{folder_name}")
-    this_emg_montage = emg_montages['lower']
     filterOpts = {
         'low': {
             'Wn': 250.,
@@ -105,7 +104,7 @@ def visualize_dataset(
             this_kin_offset = 0
         data_dict = load_synced_mat(
             file_path,
-            load_stim_info=True, split_trains=True, stim_info_traces=True, force_trains=False,
+            load_stim_info=True, split_trains=True, stim_info_traces=False, force_trains=False,
             load_ripple=True, ripple_as_df=True, ripple_variable_names=['NEV', 'NS5', 'TimeCode'],  # 'NS5', 'NF7', 'TimeCode'
             load_vicon=True, vicon_as_df=True, interpolate_emg=True, kinematics_time_offset=this_kin_offset,
             vicon_variable_names=['EMG', 'Points'],  # 'Points'
@@ -192,7 +191,8 @@ def visualize_dataset(
             video_source.rates[0] = corrected_fps
             '''
         except Exception as e:
-            # raise(e)
+            traceback.print_exc()
+            # pdb.set_trace()
             pass
         if data_dict['vicon'] is not None:
             if 'EMG' in data_dict['vicon']:
@@ -437,7 +437,8 @@ def visualize_dataset(
             win.add_view(video_view, tabify_with=f'block_{block_idx:0>2d}_emg')
         except Exception as e:
             print(f'No video found for {folder_name} block {block_idx}')
-            # raise(e)
+            traceback.print_exc()
+            # pdb.set_trace()
     win.show()
     app.exec_()
     return
@@ -448,12 +449,15 @@ if __name__ == '__main__':
     # list_of_blocks = [4]
     # folder_name = "Day12_PM"
     # list_of_blocks = [4]
-    folder_name = "Day8_AM"
-    list_of_blocks = [3]
-    # folder_name = "Day11_AM"
-    # list_of_blocks = [4]
+    # folder_name = "Day8_AM"
+    # list_of_blocks = [3]
+    folder_name = "Day11_AM"
+    list_of_blocks = [2]
     # folder_name = "Day11_PM"
     # list_of_blocks = [2]
     # folder_name = "Day12_AM"
     # list_of_blocks = [3]
-    visualize_dataset(folder_name, list_of_blocks=list_of_blocks)
+    visualize_dataset(
+        folder_name,
+        list_of_blocks=list_of_blocks,
+        this_emg_montage=emg_montages['lower_v2'])

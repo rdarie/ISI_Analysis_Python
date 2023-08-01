@@ -67,10 +67,10 @@ snsRCParams = {
         "ytick.major.width": .25,
         "xtick.minor.width": .25,
         "ytick.minor.width": .25,
-        "xtick.major.size": 3,
-        "ytick.major.size": 3,
-        "xtick.minor.size": 1,
-        "ytick.minor.size": 1,
+        "xtick.major.size": .5,
+        "ytick.major.size": .5,
+        "xtick.minor.size": .5,
+        "ytick.minor.size": .5,
         "xtick.direction": 'in',
         "ytick.direction": 'in',
     }
@@ -89,17 +89,17 @@ for rcK, rcV in mplRCParams.items():
 
 plots_dt = int(1e3)  #  usec
 
-folder_name = "Day7_AM"
-block_idx = 4
-this_emg_montage = emg_montages['lower']
+# folder_name = "Day7_AM"
+# block_idx = 4
+# this_emg_montage = emg_montages['lower']
 
 # folder_name = "Day8_AM"
 # block_idx = 4
 # this_emg_montage = emg_montages['lower']
 
-# folder_name = "Day11_AM"
-# block_idx = 4
-# this_emg_montage = emg_montages['lower_v2']
+folder_name = "Day11_AM"
+block_idx = 4
+this_emg_montage = emg_montages['lower_v2']
 
 # folder_name = "Day12_PM"
 # block_idx = 4
@@ -126,8 +126,8 @@ elif folder_name in ['Day8_AM', 'Day12_PM']:
         'RightKnee': ['RightAnkle', 'RightHip', 'RightKnee', ],
         }
 
-data_path = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
-pdf_folder = Path(f"/users/rdarie/data/rdarie/Neural Recordings/raw/ISI-C-003/5_Figures/{folder_name}")
+data_path = Path(f"/users/rdarie/Desktop/ISI-C-003/3_Preprocessed_Data/{folder_name}")
+pdf_folder = Path(f"/users/rdarie/Desktop/ISI-C-003/5_Figures/{folder_name}")
 
 if not os.path.exists(pdf_folder):
     os.makedirs(pdf_folder)
@@ -209,7 +209,7 @@ if folder_name in ['Day7_AM', 'Day8_AM']:
     ]
     condition_name = 'Participant control'
     show_envelope = True
-    show_legend = True
+    show_legend = False
 elif folder_name in ['Day12_PM']:
     # for day12_PM block 4:
     # stim_info_df.index[stim_info_df.index > 798000000]
@@ -252,7 +252,7 @@ elif folder_name in ['Day11_AM']:
     # plt.plot(stim_info_df.index, stim_info_df.index ** 0, 'o')
 
     baseline_timestamps = [int(179e6) + 1500, int(179e6) + 1500]
-    align_timestamps = [baseline_timestamps[0], 500046533]
+    align_timestamps = [baseline_timestamps[0], 500030033]
 
     # for day11_AM block 2:
     # stim_info_df.index[stim_info_df.index > 370000000]
@@ -314,34 +314,34 @@ if (not os.path.exists(parquet_folder)) or reprocess_raw:
             label_mask = label_mask | points_df.columns.get_level_values('label').str.contains(extra_label)
         points_df = points_df.loc[:, label_mask].copy()
 
-    for angle_name, angle_labels in angles_dict.items():
-        try:
-            vec1 = (
-                    points_df.xs(angle_labels[0], axis='columns', level='label') -
-                    points_df.xs(angle_labels[1], axis='columns', level='label')
-            )
-            vec2 = (
-                    points_df.xs(angle_labels[2], axis='columns', level='label') -
-                    points_df.xs(angle_labels[1], axis='columns', level='label')
-            )
-            points_df.loc[:, (angle_name, 'angle')] = vg.angle(vec1.to_numpy(), vec2.to_numpy())
-        except Exception:
-            print(f'\nSkipping angle calculation for {angle_name}\n')
-            traceback.print_exc()
+        for angle_name, angle_labels in angles_dict.items():
+            try:
+                vec1 = (
+                        points_df.xs(angle_labels[0], axis='columns', level='label') -
+                        points_df.xs(angle_labels[1], axis='columns', level='label')
+                )
+                vec2 = (
+                        points_df.xs(angle_labels[2], axis='columns', level='label') -
+                        points_df.xs(angle_labels[1], axis='columns', level='label')
+                )
+                points_df.loc[:, (angle_name, 'angle')] = vg.angle(vec1.to_numpy(), vec2.to_numpy())
+            except Exception:
+                print(f'\nSkipping angle calculation for {angle_name}\n')
+                traceback.print_exc()
 
-    lengths_dict = {
-        'LeftLimb': ['LeftHip', 'LeftFoot'],
-        'RightLimb': ['RightHip', 'RightFoot'],
-    }
-    for length_name, length_labels in lengths_dict.items():
-        try:
-            vec1 = points_df.xs(length_labels[0], axis='columns', level='label')
-            vec2 = points_df.xs(length_labels[1], axis='columns', level='label')
-            points_df.loc[:, (length_name, 'length')] = vg.euclidean_distance(
-                vec1.to_numpy(), vec2.to_numpy())
-        except Exception:
-            print(f'\nSkipping limb length calculation for {length_name}\n')
-            traceback.print_exc()
+        lengths_dict = {
+            'LeftLimb': ['LeftHip', 'LeftFoot'],
+            'RightLimb': ['RightHip', 'RightFoot'],
+        }
+        for length_name, length_labels in lengths_dict.items():
+            try:
+                vec1 = points_df.xs(length_labels[0], axis='columns', level='label')
+                vec2 = points_df.xs(length_labels[1], axis='columns', level='label')
+                points_df.loc[:, (length_name, 'length')] = vg.euclidean_distance(
+                    vec1.to_numpy(), vec2.to_numpy())
+            except Exception:
+                print(f'\nSkipping limb length calculation for {length_name}\n')
+                traceback.print_exc()
 
     '''
     points_df.columns = points_df.columns.to_frame().apply(
@@ -646,7 +646,6 @@ prettify_points_label_tuple = lambda x: f'{pretty_points_label_lookup.get(x[0])}
 # kin_format_df = pd.read_csv('./kin_format_info.csv')
 # kin_format_df.to_json('./kin_format_info.json', orient='records', indent=4)
 kin_format_df = pd.read_json('./kin_format_info.json', orient='records')
-
 kin_format_df.loc[:, 'color'] = kin_format_df.apply(parse_json_colors, axis='columns').to_list()
 
 class GradientLine:
@@ -682,24 +681,24 @@ side_label_opts = dict(
 ###################################################################################################
 ## export for github share
 
-data_folder = Path(f"/users/rdarie/scratch/3_Preprocessed_Data/{folder_name}")
-emg_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_emg_share.parquet")
-aligned_emg_df.to_parquet(emg_share_path)
-if show_envelope:
-    envelope_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_envelope_share.parquet")
-    aligned_envelope_df.to_parquet(envelope_share_path)
-spikes_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_spikes_share.parquet")
-aligned_spikes_df.to_parquet(spikes_share_path)
-kin_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_kin_share.parquet")
-aligned_kin_df.to_parquet(kin_share_path)
-if has_audible_timing:
-    audible_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_audible_share.parquet")
-    aligned_audible_df.to_parquet(audible_share_path)
+## data_folder = Path(f"/users/rdarie/Desktop/ISI-C-003/3_Preprocessed_Data/{folder_name}")
+## emg_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_emg_share.parquet")
+## aligned_emg_df.to_parquet(emg_share_path)
+## if show_envelope:
+##     envelope_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_envelope_share.parquet")
+##     aligned_envelope_df.to_parquet(envelope_share_path)
+## spikes_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_spikes_share.parquet")
+## aligned_spikes_df.to_parquet(spikes_share_path)
+## kin_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_kin_share.parquet")
+## aligned_kin_df.to_parquet(kin_share_path)
+## if has_audible_timing:
+##     audible_share_path = data_folder / Path(f"{folder_name}_Block_{block_idx}_audible_share.parquet")
+##     aligned_audible_df.to_parquet(audible_share_path)
 ###################################################################################################
 show_raw_emg = True
 baseline_dur = 3.
 show_plots = True
-figsize = (1.6, 4)
+figsize = (1.6, 3)
 with PdfPages(pdf_path) as pdf:
     emg_indexes_to_plot = aligned_emg_df.index[::emg_downsample]
     plot_emg = aligned_emg_df.loc[emg_indexes_to_plot, emg_label_subset].stack().to_frame(name='signal').reset_index()

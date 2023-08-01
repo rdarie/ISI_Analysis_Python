@@ -322,16 +322,16 @@ def visualize_dataset(
 if __name__ == '__main__':
     # folder_name = "Day7_AM"
     # list_of_blocks = [4]
-    # folder_name = "Day12_PM"
-    # list_of_blocks = [4]
     folder_name = "Day8_AM"
-    list_of_blocks = [2]
+    list_of_blocks = [3]
     # folder_name = "Day11_AM"
-    # list_of_blocks = [4]
+    # list_of_blocks = [2]
     # folder_name = "Day11_PM"
     # list_of_blocks = [2]
     # folder_name = "Day12_AM"
     # list_of_blocks = [3]
+    # folder_name = "Day12_PM"
+    # list_of_blocks = [4]
     visualize_dataset(
         folder_name, list_of_blocks=list_of_blocks,
-        this_emg_montage=emg_montages['lower'])
+        this_emg_montage=emg_montages['lower_v2'])

@@ -85,6 +85,7 @@ muscle_names = {
 #             2: [(12449750, 27259750), (27259750, 48929750), (460029750, 480869750), (480869750, 503209750), ]
 #         }
 # }
+
 kinematics_offsets = {
     'Day11_AM': {
         1: 0.,
@@ -101,6 +102,9 @@ kinematics_offsets = {
         3: 0.
     },
     'Day8_AM': {
+        1: 0.25,
+        2: 0.3,
+        3: 0.8,
         4: 0.9
     },
     'Day7_AM': {
@@ -125,27 +129,27 @@ video_info = {
     'Day11_AM': {
         1: {
             'paths': [
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
             ],
             'start_timestamps': ['23:05:24:14', '23:05:56:19', '23:05:19:24'],
-            'rollovers': [True, True, True]
+            'rollovers': [False, False, False]
         },
         2: {
             'paths': [
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
             ],
             'start_timestamps': ['23:05:24:14', '23:05:56:19', '23:05:19:24'],
-            'rollovers': [True, True, True]
+            'rollovers': [False, False, False]
         },
         4: {
             'paths': [
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
-                '/users/rdarie/Desktop/Data Partition Neural Recordings/raw/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam1_GH010630_NDF.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam2_GH010046.mp4',
+                '/users/rdarie/Desktop/ISI-C-003/6_Video/Day11_AM_Cam3_GH010635.mp4',
             ],
             'start_timestamps': ['23:05:24:14', '23:05:56:19', '23:05:19:24'],
             'rollovers': [True, True, True]
