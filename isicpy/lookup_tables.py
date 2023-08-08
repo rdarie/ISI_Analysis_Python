@@ -126,6 +126,13 @@ video_info = {
             'rollovers': [True]
         }
     },
+    'Day8_PM': {
+        2: {
+            'paths': ['/users/rdarie/Desktop/ISI-C-003/6_Video/Day8_PM_GH010626.mp4'],
+            'start_timestamps': ['04:17:39:08'],
+            'rollovers': [False]
+        }
+    },
     'Day11_AM': {
         1: {
             'paths': [

@@ -522,3 +522,78 @@ def timestring_to_timestamp(
         t_delta = pd.Timedelta(total_frames / fps, unit='sec')
         tstamp = pd.Timestamp(year=year, month=month, day=day) + t_delta
     return tstamp
+
+def confirmTriggersPlot(peakIdx, dataSeries, fs, whichPeak=0, nSec=10):
+    #
+    indent = peakIdx[whichPeak]
+    #
+    dataSlice = slice(
+        max(0, int(indent-.25*fs)),
+        min(int(indent+nSec*fs), dataSeries.shape[0])) # 5 sec after first peak
+    peakSlice = np.where(np.logical_and(peakIdx > indent - .25*fs, peakIdx < indent + nSec*fs))
+    #
+    fig, ax = plt.subplots()
+    plt.plot((dataSeries.index[dataSlice] - indent) * fs ** (-1), dataSeries.iloc[dataSlice])
+    plt.plot((peakIdx[peakSlice] - indent) * fs ** (-1), dataSeries.iloc[peakIdx[peakSlice]], 'r*')
+    plt.title('dataSeries and found triggers')
+    plt.xlabel('distance between triggers (sec)')
+
+    figDist, axDist = plt.subplots()
+    if len(peakIdx) > 5:
+        sns.distplot(np.diff(peakIdx) * fs ** (-1), kde=False)
+    plt.title('distance between triggers (sec)')
+    plt.xlabel('distance between triggers (sec)')
+    return fig, ax, figDist, axDist
+
+def getThresholdCrossings(
+        dataSrs, thresh=None, absVal=False,
+        edgeType='rising', fs=3e4, iti=None,
+        plotting=False, keep_max=True, itiWiggle=0.05):
+    if absVal:
+        dsToSearch = dataSrs.abs()
+    else:
+        dsToSearch = dataSrs
+    # dsToSearch: data series to search
+    nextDS = dsToSearch.shift(1).fillna(method='bfill')
+    if edgeType == 'rising':
+        crossMask = (
+            (dsToSearch >= thresh) & (nextDS < thresh) |
+            (dsToSearch > thresh) & (nextDS <= thresh))
+    elif edgeType == 'falling':
+        crossMask = (
+            (dsToSearch <= thresh) & (nextDS > thresh) |
+            (dsToSearch < thresh) & (nextDS >= thresh))
+    elif edgeType == 'both':
+        risingMask = (
+            (dsToSearch >= thresh) & (nextDS < thresh) |
+            (dsToSearch > thresh) & (nextDS <= thresh))
+        fallingMask = (
+            (dsToSearch <= thresh) & (nextDS > thresh) |
+            (dsToSearch < thresh) & (nextDS >= thresh))
+        crossMask = risingMask | fallingMask
+    crossIdx = dataSrs.index[crossMask]
+    # pdb.set_trace()
+    if iti is not None:
+        min_dist = int(fs * iti * (1 - itiWiggle))
+        y = dsToSearch.abs().to_numpy()
+        peaks = np.array([dsToSearch.index.get_loc(i) for i in crossIdx])
+        if peaks.size > 1 and min_dist > 1:
+            print(len(peaks))
+            if keep_max:
+                highest = peaks[np.argsort(y[peaks])][::-1]
+            else:
+                highest = peaks
+            rem = np.ones(y.size, dtype=bool)
+            rem[peaks] = False
+            for peak in highest:
+                if not rem[peak]:
+                    sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
+                    rem[sl] = True
+                    rem[peak] = False
+            peaks = np.arange(y.size)[~rem]
+            crossIdx = dsToSearch.index[peaks]
+            crossMask = dsToSearch.index.isin(crossIdx)
+    if plotting and (crossIdx.size > 0):
+        figData, axData, figDist, axDist = confirmTriggersPlot(crossIdx, dsToSearch, fs)
+        plt.show(block=True)
+    return crossIdx, crossMask

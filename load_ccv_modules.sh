@@ -15,3 +15,4 @@ module unload python
 
 . /gpfs/runtime/opt/anaconda/2022.05/etc/profile.d/conda.sh
 conda activate
+conda activate isi_analysis

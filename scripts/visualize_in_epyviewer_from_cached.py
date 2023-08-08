@@ -106,7 +106,6 @@ def visualize_dataset(
         stim_info_traces_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_stim_info_traces_df.parquet"
         nev_spikes_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_nev_spikes_df.parquet"
         points_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_points_df.parquet"
-
         try:
             timecode_df = pd.read_parquet(timecode_parquet_path)
             first_ripple = timecode_df.iloc[0, :]
@@ -160,6 +159,7 @@ def visualize_dataset(
                 video_source.frame_grabbers[video_idx].start_time = t_starts[video_idx]
         except Exception as e:
             # raise(e)
+            traceback.print_exc()
             pass
         if 'EMG' in what_to_show:
             emg_df = pd.read_parquet(emg_parquet_path)
@@ -238,7 +238,15 @@ def visualize_dataset(
             }
             event_source = ephyviewer.InMemoryEventSource(all_events=[timecode_event_dict])
             event_view = ephyviewer.EventList(source=event_source, name=f'block_{block_idx:0>2d}_timecode')
-            win.add_view(event_view, tabify_with=f'block_{block_idx:0>2d}_stim_info')
+            if 'StimInfo' in what_to_show:
+                win.add_view(event_view, tabify_with=f'block_{block_idx:0>2d}_stim_info')
+            else:
+                if idx_into_list == 0:
+                    win.add_view(event_view, split_with=top_level_emg_view, orientation='horizontal')
+                    top_level_event_view = f'block_{block_idx:0>2d}_timecode'
+                else:
+                    win.add_view(event_view, tabify_with=top_level_event_view)
+
         if 'NEV' in what_to_show:
             nev_spikes_df = pd.read_parquet(nev_spikes_parquet_path)
             spike_list = []
@@ -322,8 +330,10 @@ def visualize_dataset(
 if __name__ == '__main__':
     # folder_name = "Day7_AM"
     # list_of_blocks = [4]
-    folder_name = "Day8_AM"
-    list_of_blocks = [3]
+    # folder_name = "Day8_AM"
+    # list_of_blocks = [3]
+    folder_name = "Day8_PM"
+    list_of_blocks = [2]
     # folder_name = "Day11_AM"
     # list_of_blocks = [2]
     # folder_name = "Day11_PM"
@@ -334,4 +344,7 @@ if __name__ == '__main__':
     # list_of_blocks = [4]
     visualize_dataset(
         folder_name, list_of_blocks=list_of_blocks,
-        this_emg_montage=emg_montages['lower_v2'])
+        what_to_show=[
+            'EMG', 'NF7', 'NS5', 'TimeCode'
+        ],
+        this_emg_montage=emg_montages['lower'])
