@@ -89,7 +89,6 @@ def _hdf5todict(hdf5_object, variable_names=None, ignore_fields=None):
         return _handle_hdf5_dataset(hdf5_object)
     elif isinstance(hdf5_object, (list, types.GeneratorType)):
         return [_hdf5todict(item) for item in hdf5_object]
-
     raise TypeError('Unknown type in hdf5 file')
 
 
