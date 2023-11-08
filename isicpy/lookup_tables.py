@@ -111,6 +111,7 @@ kinematics_offsets = {
         4: 0.9
     }
 }
+
 video_info = {
     'Day7_AM': {
         4: {

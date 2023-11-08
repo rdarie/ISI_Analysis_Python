@@ -33,9 +33,6 @@ from matplotlib import pyplot as plt
 
 snsRCParams = {
         'figure.dpi': useDPI, 'savefig.dpi': useDPI,
-    # change the line width for the legend
-    for line in g.legend.get_lines():
-        line.set_linewidth(4.0)
         'lines.linewidth': .5,
         'lines.markersize': 2.5,
         'patch.linewidth': .5,
@@ -203,6 +200,7 @@ gc.collect()
 g = sns.displot(data=stim_info_df, x='delta_timestamp_usec', rug=True, element='step', fill=False)
 plt.show()
 '''
+
 emg_metadata = emg_df.index.to_frame()
 recruitment_keys = ['elecConfig_str', 'amp', 'freq']
 for meta_key in recruitment_keys:
@@ -272,6 +270,9 @@ with PdfPages(pdf_path) as pdf:
             height=5, aspect=2 / 3
             )
         g.figure.suptitle(f"{elecConfig}")
+        # change the line width for the legend
+        for line in g.legend.get_lines():
+            line.set_linewidth(4.0)
         pdf.savefig(bbox_inches='tight', pad_inches=0)
         if show_plots:
             plt.show()

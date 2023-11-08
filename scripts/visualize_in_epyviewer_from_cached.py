@@ -1,3 +1,9 @@
+
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['ps.fonttype'] = 42
+mpl.use('tkagg')   # generate interactive output
+
 import traceback
 from isicpy.utils import load_synced_mat, closestSeries, makeFilterCoeffsSOS, timestring_to_timestamp
 from isicpy.lookup_tables import emg_montages, kinematics_offsets, video_info
@@ -14,13 +20,6 @@ from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 from scipy import signal
 import ephyviewer
-import matplotlib as mpl
-mpl.rcParams['pdf.fonttype'] = 42
-mpl.rcParams['ps.fonttype'] = 42
-if 'CCV_HEADLESS' in os.environ:
-    mpl.use('Agg')   # generate postscript output
-else:
-    mpl.use('QT5Agg')   # generate interactive output
 useDPI = 200
 dpiFactor = 72 / useDPI
 
@@ -65,7 +64,7 @@ mplRCParams = {
     'figure.titlesize': 7,
     'pdf.fonttype': 42,
     'ps.fonttype': 42,
-}
+    }
 sns.set(
     context='talk', style='white',
     palette='dark', font='sans-serif',
@@ -74,9 +73,10 @@ sns.set(
 for rcK, rcV in mplRCParams.items():
     mpl.rcParams[rcK] = rcV
 
+
 def visualize_dataset(
         folder_name, list_of_blocks=[4],
-        what_to_show=None, this_emg_montage=None):
+        what_to_show=None, custom_name=None, this_emg_montage=None):
     if what_to_show is None:
         what_to_show = [
             'EMG', 'Points', 'NF7', 'NS5', 'NEV',
@@ -100,6 +100,7 @@ def visualize_dataset(
     for idx_into_list, block_idx in enumerate(list_of_blocks):
         timecode_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_ripple_timecode_df.parquet"
         nf7_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_nf7_df.parquet"
+        reref_nf7_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_reref_lfp_df.parquet"
         ns5_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_ns5_df.parquet"
         emg_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_emg_df.parquet"
         stim_info_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_stim_info_df.parquet"
@@ -167,7 +168,7 @@ def visualize_dataset(
             emg_sample_rate = np.median(np.diff(emg_df.index.get_level_values('time_usec') * 1e-6)) ** -1
             # filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
             # emg_signals = signal.sosfiltfilt(filterCoeffs, (emg_df - emg_df.mean()).abs(), axis=0)
-            emg_signals = (emg_df - emg_df.mean()).abs().to_numpy()
+            emg_signals = (emg_df - emg_df.mean()).to_numpy()
             t_start = emg_df.index.get_level_values('time_usec')[0] * 1e-6
             emg_signals_source = ephyviewer.InMemoryAnalogSignalSource(
                 emg_signals, emg_sample_rate, t_start, channel_names=emg_df.columns)
@@ -246,7 +247,6 @@ def visualize_dataset(
                     top_level_event_view = f'block_{block_idx:0>2d}_timecode'
                 else:
                     win.add_view(event_view, tabify_with=top_level_event_view)
-
         if 'NEV' in what_to_show:
             nev_spikes_df = pd.read_parquet(nev_spikes_parquet_path)
             spike_list = []
@@ -281,6 +281,38 @@ def visualize_dataset(
                 top_level_lfp_view = f'block_{block_idx:0>2d}_lfp'
             else:
                 win.add_view(lfp_signals_view, tabify_with=top_level_lfp_view)
+        if 'custom' in what_to_show:
+            custom_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_{custom_name}_df.parquet"
+            lfp_df = pd.read_parquet(custom_parquet_path)
+            lfp_signals = lfp_df.to_numpy()
+            lfp_sample_rate = 15e3
+            t_start = lfp_df.index.get_level_values('time_usec')[0] * 1e-6
+            lfp_signals_source = ephyviewer.InMemoryAnalogSignalSource(
+                lfp_signals, lfp_sample_rate, t_start, channel_names=lfp_df.columns)
+            lfp_signals_view = ephyviewer.TraceViewer(source=lfp_signals_source, name=f'block_{block_idx:0>2d}_{custom_name}')
+            lfp_signals_view.params_controller.on_automatic_color(cmap_name='Set3')
+            if idx_into_list == 0:
+                win.add_view(lfp_signals_view, split_with=top_level_emg_view, orientation='vertical')
+                top_level_lfp_view = f'block_{block_idx:0>2d}_custom'
+            else:
+                win.add_view(lfp_signals_view, tabify_with=top_level_lfp_view)
+        if 'reref_NF7' in what_to_show:
+            lfp_df = pd.read_parquet(reref_nf7_parquet_path)
+            lfp_signals = lfp_df.to_numpy()
+            lfp_sample_rate = 15e3
+            t_start = lfp_df.index.get_level_values('time_usec')[0] * 1e-6
+            lfp_signals_source = ephyviewer.InMemoryAnalogSignalSource(
+                lfp_signals, lfp_sample_rate, t_start, channel_names=lfp_df.columns)
+            lfp_signals_view = ephyviewer.TraceViewer(source=lfp_signals_source, name=f'block_{block_idx:0>2d}_reref_lfp')
+            lfp_signals_view.params_controller.on_automatic_color(cmap_name='Set3')
+            if idx_into_list == 0:
+                win.add_view(lfp_signals_view, split_with=top_level_emg_view, orientation='vertical')
+                top_level_lfp_view = f'block_{block_idx:0>2d}_reref_lfp'
+            else:
+                win.add_view(lfp_signals_view, tabify_with=top_level_lfp_view)
+            if 'reref_NF7_spectral' in what_to_show:
+                lfp_signal_spectral_view = ephyviewer.TimeFreqViewer(source=lfp_signals_source, name=f'block_{block_idx:0>2d}_reref_lfp_spectrogram')
+                win.add_view(lfp_signal_spectral_view, tabify_with=f'block_{block_idx:0>2d}_reref_lfp')
         if 'NS5' in what_to_show:
             ns5_df = pd.read_parquet(ns5_parquet_path)
             lfp_signals = ns5_df.to_numpy()
@@ -332,19 +364,22 @@ if __name__ == '__main__':
     # list_of_blocks = [4]
     # folder_name = "Day8_AM"
     # list_of_blocks = [3]
-    folder_name = "Day8_PM"
-    list_of_blocks = [2]
+    # folder_name = "Day8_PM"
+    # list_of_blocks = [2]
+    # what_to_show = ['EMG', 'NF7', 'NS5', 'reref_NF7', 'reref_NF7_spectral']
     # folder_name = "Day11_AM"
     # list_of_blocks = [2]
-    # folder_name = "Day11_PM"
+    folder_name = "Day11_PM"
     # list_of_blocks = [2]
+    # what_to_show = ['EMG', 'NF7', 'reref_NF7', 'reref_NF7_spectral', 'StimInfo', 'NEV']
+    list_of_blocks = [5]
+    what_to_show = ['EMG', 'NS5', 'NF7', 'reref_NF7', 'custom']
+    emg_montage = emg_montages['lower_v2']
     # folder_name = "Day12_AM"
     # list_of_blocks = [3]
     # folder_name = "Day12_PM"
     # list_of_blocks = [4]
     visualize_dataset(
         folder_name, list_of_blocks=list_of_blocks,
-        what_to_show=[
-            'EMG', 'NF7', 'NS5', 'TimeCode'
-        ],
-        this_emg_montage=emg_montages['lower'])
+        what_to_show=what_to_show, custom_name='common_average',
+        this_emg_montage=emg_montage)

@@ -1,4 +1,8 @@
 
+import matplotlib as mpl
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['ps.fonttype'] = 42
+mpl.use('qtagg')  # generate interactive output
 import traceback
 from isicpy.utils import makeFilterCoeffsSOS, getThresholdCrossings, mapToDF
 from isicpy.lookup_tables import emg_montages, muscle_names
@@ -11,16 +15,12 @@ import gc
 from tqdm import tqdm
 from scipy import signal
 import os
-import matplotlib as mpl
 import seaborn as sns
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.preprocessing import StandardScaler
 
-mpl.rcParams['pdf.fonttype'] = 42
-mpl.rcParams['ps.fonttype'] = 42
-mpl.use('QT5Agg')  # generate interactive output
 
 useDPI = 72
 dpiFactor = 72 / useDPI
@@ -75,7 +75,6 @@ for rcK, rcV in mplRCParams.items():
 
 left_sweep = int(-0.050 * 1e6)
 right_sweep = int(0.125 * 1e6)
-probe_channel_name = "analog 2"
 
 verbose = 1
 
@@ -94,13 +93,14 @@ filterOpts = {
     },
 }
 
-folder_name = "Day8_PM"
-blocks_list = [2]
+folder_name = "Day11_PM"
+blocks_list = [5]
 this_emg_montage = emg_montages['lower_v2']
+artifact_channel_name = 'caudal'
 locations_files = {
-    'Day8_PM':
+    'Day11_PM':
         {
-            2: '/users/rdarie/Desktop/ISI-C-003/6_Video/Day8_PM_Block0002_tactile_locations.csv'}
+            5: '/users/rdarie/Desktop/ISI-C-003/3_Preprocessed_Data/Day11_PM/Day11_PM_Block0005_tens_locations.csv'}
 }
 
 blocks_list_str = '_'.join(f"{block_idx}" for block_idx in blocks_list)
@@ -115,8 +115,6 @@ lfp_sample_rate = int(1.5e4)
 nominal_dt = float(lfp_sample_rate) ** -1 * 1e6
 epoch_t = np.arange(left_sweep, right_sweep, nominal_dt)
 nominal_num_samp = epoch_t.shape[0]
-
-
 def assign_locations(t, loc_df=None):
     for row_idx, row in loc_df.iterrows():
         if (t > row['t_start']) & (t < row['t_end']):
@@ -127,10 +125,9 @@ all_aligned_lfp = {}
 for block_idx in blocks_list:
     locations_df = pd.read_csv(locations_files[folder_name][block_idx])
 
-    # emg_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_emg_df.parquet"
-    # this_emg = pd.read_parquet(emg_parquet_path)
+    # nf7_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_reref_lfp_df.parquet"
+    nf7_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_nf7_df.parquet"
 
-    nf7_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_reref_lfp_df.parquet"
     this_lfp = pd.read_parquet(nf7_parquet_path)
     analog_time_vector = np.asarray(this_lfp.index)
 
@@ -141,23 +138,29 @@ for block_idx in blocks_list:
             signal.sosfiltfilt(filterCoeffs, this_lfp - this_lfp.mean(), axis=0),
             index=this_lfp.index, columns=this_lfp.columns)
 
-    ns5_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_ns5_df.parquet"
-    this_ns5 = pd.read_parquet(ns5_parquet_path)
+    artifact_parquet_path = parquet_folder / f"Block{block_idx:0>4d}_common_average_df.parquet"
+    this_artifact = pd.read_parquet(artifact_parquet_path)
 
-    signal_bounds = this_ns5[probe_channel_name].quantile([1e-2, 1-1e-2])
-    signal_thresh = (signal_bounds.iloc[-1] + signal_bounds.iloc[0]) / 2
-    align_timestamps, cross_mask = getThresholdCrossings(
-        this_ns5[probe_channel_name], thresh=signal_thresh, fs=1.5e4)
+    signal_thresh = 2.
+    temp = pd.Series(this_artifact[artifact_channel_name].to_numpy())
+    _, cross_mask = getThresholdCrossings(
+        temp, thresh=signal_thresh, fs=lfp_sample_rate, iti=.5)
+    align_timestamps = this_artifact.index[cross_mask].copy()
+    # print(pd.Series(align_timestamps).diff())
 
     if False:
         fig, ax = plt.subplots()
         ax.plot(align_timestamps, align_timestamps ** 0, 'r*')
-        ax.plot(this_ns5.index, this_ns5[probe_channel_name])
+        ax.plot(this_artifact.index, this_artifact[probe_channel_name])
         plt.show()
 
     align_timestamps_metadata = pd.DataFrame(
         (pd.Series(align_timestamps) * 1e-6).apply(lambda x: assign_locations(x, loc_df=locations_df)).to_list(),
         index=align_timestamps, columns=['side', 'location'])
+
+    align_timestamps = align_timestamps[~align_timestamps_metadata['side'].isna()]
+    align_timestamps_metadata = align_timestamps_metadata[~align_timestamps_metadata['side'].isna()]
+
     print(f'Epoching lfp from \n\t{nf7_parquet_path}')
     aligned_dfs = {}
     baseline_bounds = [-50e3, 0]
@@ -214,7 +217,7 @@ if not os.path.exists(pdf_folder):
 list_of_plot_types = ['mean', 'singles', 'median']
 # list_of_plot_types = ['mean']
 for plot_type in list_of_plot_types:
-    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_lfp_tactile_response_{plot_type}.pdf")
+    pdf_path = pdf_folder / Path(f"Blocks_{blocks_list_str}_lfp_TENS_response_{plot_type}.pdf")
     if plot_type == 'median':
         relplot_kwargs = dict(estimator=np.median, errorbar='se')
     if plot_type == 'mean':

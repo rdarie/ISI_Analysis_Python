@@ -597,3 +597,45 @@ def getThresholdCrossings(
         figData, axData, figDist, axDist = confirmTriggersPlot(crossIdx, dsToSearch, fs)
         plt.show(block=True)
     return crossIdx, crossMask
+
+
+def mapToDF(arrayFilePath):
+    arrayMap = pd.read_csv(
+        arrayFilePath, sep='; ',
+        skiprows=10, header=None, engine='python',
+        names=['FE', 'electrode', 'position'])
+    cmpDF = pd.DataFrame(
+        np.nan, index=range(146),
+        columns=[
+            'xcoords', 'ycoords', 'zcoords', 'elecName',
+            'elecID', 'label', 'bank', 'bankID', 'nevID']
+        )
+    bankLookup = {
+        'A.1': 0, 'A.2': 1, 'A.3': 2, 'A.4': 3,
+        'B.1': 4, 'B.2': 5, 'B.3': 6, 'B.4': 7}
+    for rowIdx, row in arrayMap.iterrows():
+        processor, port, FEslot, channel = row['FE'].split('.')
+        bankName = '{}.{}'.format(port, FEslot)
+        array, electrodeFull = row['electrode'].split('.')
+        if '_' in electrodeFull:
+            electrode, electrodeRep = electrodeFull.split('_')
+        else:
+            electrode = electrodeFull
+        x, y, z = row['position'].split('.')
+        nevIdx = int(channel) - 1 + bankLookup[bankName] * 32
+        cmpDF.loc[nevIdx, 'elecID'] = int(electrode[1:])
+        cmpDF.loc[nevIdx, 'nevID'] = nevIdx
+        cmpDF.loc[nevIdx, 'elecName'] = array
+        cmpDF.loc[nevIdx, 'xcoords'] = float(x)
+        cmpDF.loc[nevIdx, 'ycoords'] = float(y)
+        cmpDF.loc[nevIdx, 'zcoords'] = float(z)
+        cmpDF.loc[nevIdx, 'label'] = row['electrode'].replace('.', '_')
+        cmpDF.loc[nevIdx, 'bank'] = bankName
+        cmpDF.loc[nevIdx, 'bankID'] = int(channel)
+        cmpDF.loc[nevIdx, 'FE'] = row['FE']
+    #
+    cmpDF.dropna(inplace=True)
+    cmpDF.reset_index(inplace=True, drop=True)
+    cmpDF.loc[:, 'nevID'] += 1
+    return cmpDF
+
