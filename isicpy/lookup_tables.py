@@ -53,8 +53,26 @@ emg_montages = {
         12: 'NA',  # not connected
         13: 'NA',  # not connected
         14: 'NA',  # not connected
+        15: 'Sync',
+    },
+    'ovine_dsi': {
+        0: 'LVL',
+        1: 'LMH',
+        2: 'LTA',
+        3: 'LMG',
+        4: 'LSOL',
+        5: 'L Forearm',
+        6: 'RLVL',
+        7: 'RMH',
+        8: 'RTA',
+        9: 'RMG',
+        10: 'RSOL',
+        11: 'R Forearm',
+        12: 'NA',  # not connected
+        13: 'NA',  # not connected
+        14: 'NA',  # not connected
         15: 'Sync'
-    }
+    },
 }
 paired_emg_labels = ['LVL', 'RLVL', 'LMH', 'RMH', 'LTA', 'RTA', 'LMG', 'RMG', 'LSOL', 'RSOL', 'L Forearm', 'R Forearm']
 emg_palette = palettable.colorbrewer.qualitative.Paired_12.mpl_colors

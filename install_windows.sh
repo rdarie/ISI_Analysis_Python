@@ -14,8 +14,8 @@ RepoList=(\
 "umap"
 )
 
-conda env create -f environment-open.yml -v -v
-conda.bat activate nda2
+mamba env create -f environment.yml -v -v
+mamba activate nda2
 cd ..
 
 pip install git+git://github.com/G-Node/nixpy@v1.5.0b3 --user --no-deps
@@ -30,6 +30,6 @@ for i in ${RepoList[*]}; do
     python setup.py develop --user --no-deps
     cd ..
 done
-#
+
 cd Data-Analysis
 python setup.py develop --user --no-deps
