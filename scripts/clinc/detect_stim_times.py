@@ -26,15 +26,15 @@ iti_lookup = {
 
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
 file_name_list = [
-    'MB_1700670158_174163_f.mat', 'MB_1700671071_947699_f.mat', 'MB_1700671568_714180_f.mat',
-    'MB_1700672329_741498_f.mat', 'MB_1700672668_26337_f.mat', 'MB_1700673350_780580_f.mat'
+    'MB_1700670158_174163', 'MB_1700671071_947699', 'MB_1700671568_714180',
+    'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
 iti_lookup = {
     fn: 1. for fn in file_name_list
 }
 
 for file_name in file_name_list:
-    clinc_df = pd.read_parquet(folder_path / (file_name + '_f_clinc.parquet'))
+    clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
     clinc_sample_rate = (float(np.median(np.diff(clinc_df.index))) * 1e-9) ** -1
 
     high_pass_filter = False
