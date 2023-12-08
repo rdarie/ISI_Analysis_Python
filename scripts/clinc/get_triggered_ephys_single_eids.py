@@ -2,11 +2,11 @@ import pandas as pd
 from pathlib import Path
 import json
 from isicpy.utils import makeFilterCoeffsSOS, getThresholdCrossings
+from isicpy.clinc_lookup_tables import clinc_sample_rate
 from scipy import signal
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-clinc_sample_rate = 36931.8
 '''filterOpts = {
     'high': {
         'Wn': 1000.,
@@ -16,28 +16,29 @@ clinc_sample_rate = 36931.8
     },
 }'''
 
-clinc_sample_interval = pd.Timedelta(27077, unit='ns').to_timedelta64()
-clinc_sample_interval_sec = float(clinc_sample_interval) * 1e-9
-clinc_sample_rate = (clinc_sample_interval_sec) ** -1
+clinc_sample_interval_sec = float(clinc_sample_rate ** -1)
 
 folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/20231109-Phoenix")
-# file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
 file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
 
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
 file_name_list = [
-    'MB_1700670158_174163', 'MB_1700671071_947699', 'MB_1700671568_714180',
+    'MB_1700670158_174163', 'MB_1700671071_947699',
+    # 'MB_1700671568_714180',
     'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
+file_name_list = ['MB_1700672668_26337', 'MB_1700673350_780580']
+per_pulse = False
 
-file_name_list = ['MB_1700673350_780580']
 for file_name in file_name_list:
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
     artifact_df = pd.read_parquet(folder_path / (file_name + '_average_zscore.parquet'))
     reref_df = pd.read_parquet(folder_path / (file_name + '_clinc_reref.parquet'))
     # filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), clinc_sample_rate)
-
-    stim_info = pd.read_parquet(folder_path / (file_name + '_stim_info.parquet'))
+    if per_pulse:
+        stim_info = pd.read_parquet(folder_path / (file_name + '_stim_info_per_pulse.parquet'))
+    else:
+        stim_info = pd.read_parquet(folder_path / (file_name + '_stim_info.parquet'))
 
     left_sweep = 0
     right_sweep = 9e-3
@@ -49,8 +50,11 @@ for file_name in file_name_list:
     epoched_dict = {}
     epoched_artifact_dict = {}
     reref_dict = {}
-    epoch_labels = ['timestamp', 'eid', 'amp', 'freq', 'pw']
-    for timestamp, group in stim_info.groupby(['timestamp']):
+    if per_pulse:
+        epoch_labels = ['timestamp', 'eid', 'amp', 'freq', 'pw', 'train_idx', 'rank_in_train']
+    else:
+        epoch_labels = ['timestamp', 'eid', 'amp', 'freq', 'pw']
+    for timestamp, group in stim_info.groupby('timestamp'):
         key = tuple(group.reset_index().loc[0, epoch_labels])
         first_index = np.flatnonzero(clinc_df.index > timestamp)[0]
 
@@ -67,14 +71,16 @@ for file_name in file_name_list:
 
     lfp_df = pd.concat(epoched_dict, names=epoch_labels + ['t'])
     lfp_df.columns.name = 'channel'
-    lfp_df.to_parquet(folder_path / (file_name + '_epoched_lfp.parquet'))
+    file_name_suffix = '_per_pulse' if per_pulse else ''
+    lfp_df.to_parquet(
+        folder_path / (file_name + f'_epoched_lfp{file_name_suffix}.parquet'), engine='fastparquet')
 
     reref_lfp_df = pd.concat(reref_dict, names=epoch_labels + ['t'])
     reref_lfp_df.columns.name = 'channel'
-    reref_lfp_df.to_parquet(folder_path / (file_name + '_epoched_reref_lfp.parquet'))
+    reref_lfp_df.to_parquet(
+        folder_path / (file_name + f'_epoched_reref_lfp{file_name_suffix}.parquet'), engine='fastparquet')
 
     epoched_artifact_df = pd.concat(epoched_artifact_dict, names=epoch_labels + ['t'])
     epoched_artifact_df.columns.name = 'channel'
-    epoched_artifact_df.to_parquet(folder_path / (file_name + '_epoched_artifact.parquet'))
-
-
+    epoched_artifact_df.to_parquet(
+        folder_path / (file_name + f'_epoched_artifact{file_name_suffix}.parquet'), engine='fastparquet')

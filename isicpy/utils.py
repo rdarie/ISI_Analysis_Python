@@ -420,17 +420,16 @@ def makeFilterCoeffsSOS(
                 w0 = harmonicOrder * notchFreq
                 bw = w0 / notchQ
                 theseOpts['Wn'] = [w0 - bw/2, w0 + bw/2]
-                sos = signal.iirfilter(
-                        **theseOpts, output='sos')
+                sos = signal.iirfilter(**theseOpts, output='sos')
                 filterCoeffsSOS = np.concatenate([filterCoeffsSOS, sos])
-                print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
+                # print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
                 if plotting:
                     plotFilterOptsResponse(theseOpts)
         if theseOpts['btype'] == 'high':
             theseOpts['fs'] = samplingRate
             sos = signal.iirfilter(**theseOpts, output='sos')
             filterCoeffsSOS = np.concatenate([filterCoeffsSOS, sos])
-            print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
+            # print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
             if plotting:
                 plotFilterOptsResponse(theseOpts)
         #
@@ -438,7 +437,7 @@ def makeFilterCoeffsSOS(
             theseOpts['fs'] = samplingRate
             sos = signal.iirfilter(**theseOpts, output='sos')
             filterCoeffsSOS = np.concatenate([filterCoeffsSOS, sos])
-            print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
+            # print('Adding {} coefficients for filter portion {}'.format(sos.shape[0], fName))
             if plotting:
                 plotFilterOptsResponse(theseOpts)
     return filterCoeffsSOS
@@ -548,7 +547,8 @@ def confirmTriggersPlot(peakIdx, dataSeries, fs, whichPeak=0, nSec=10):
 def getThresholdCrossings(
         dataSrs, thresh=None, absVal=False,
         edgeType='rising', fs=3e4, iti=None,
-        plotting=False, keep_max=True, itiWiggle=0.05):
+        keep_max=True, itiWiggle=0.05,
+        plotting=False, plot_opts=dict()):
     if absVal:
         dsToSearch = dataSrs.abs()
     else:
@@ -572,13 +572,11 @@ def getThresholdCrossings(
             (dsToSearch < thresh) & (nextDS >= thresh))
         crossMask = risingMask | fallingMask
     crossIdx = dataSrs.index[crossMask]
-    # pdb.set_trace()
     if iti is not None:
         min_dist = int(fs * iti * (1 - itiWiggle))
         y = dsToSearch.abs().to_numpy()
         peaks = np.array([dsToSearch.index.get_loc(i) for i in crossIdx])
         if peaks.size > 1 and min_dist > 1:
-            print(len(peaks))
             if keep_max:
                 highest = peaks[np.argsort(y[peaks])][::-1]
             else:
@@ -594,7 +592,7 @@ def getThresholdCrossings(
             crossIdx = dsToSearch.index[peaks]
             crossMask = dsToSearch.index.isin(crossIdx)
     if plotting and (crossIdx.size > 0):
-        figData, axData, figDist, axDist = confirmTriggersPlot(crossIdx, dsToSearch, fs)
+        figData, axData, figDist, axDist = confirmTriggersPlot(crossIdx, dsToSearch, fs, **plot_opts)
         plt.show(block=True)
     return crossIdx, crossMask
 

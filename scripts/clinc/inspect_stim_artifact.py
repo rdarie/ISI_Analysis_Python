@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 import json
 from isicpy.utils import makeFilterCoeffsSOS, getThresholdCrossings
+from isicpy.clinc_lookup_tables import clinc_sample_rate, emg_sample_rate, dsi_trig_sample_rate
 from scipy import signal
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -21,7 +22,6 @@ sns.set(
     )
 
 from matplotlib import pyplot as plt
-clinc_sample_rate = 36931.8
 
 '''filterOpts = {
     'high': {
@@ -31,10 +31,6 @@ clinc_sample_rate = 36931.8
         'ftype': 'butter'
     },
 }'''
-
-clinc_sample_interval = pd.Timedelta(27077, unit='ns').to_timedelta64()
-clinc_sample_interval_sec = float(clinc_sample_interval) * 1e-9
-clinc_sample_rate = (clinc_sample_interval_sec) ** -1
 
 def plot_single_event(data, channel=None):
     plot_data = data.query("channel == 'S1_S3'")
@@ -51,7 +47,7 @@ file_name_list = [
     'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
 
-file_name_list = ['MB_1700670158_174163']
+file_name_list = ['MB_1700672668_26337']
 
 for file_name in file_name_list:
     lfp_df = pd.read_parquet(folder_path / (file_name + '_epoched_reref_lfp.parquet'))
@@ -60,13 +56,12 @@ for file_name in file_name_list:
     plot_df.loc[:, 't_msec'] = plot_df['t'] * 1e3
     
     for name, group in plot_df.groupby(['timestamp']):
-        # chans = lfp_df.columns
-        chans = ['E0', 'E47']
+        chans = lfp_df.columns
+        # chans = ['E0', 'E47']
         fig, ax = plt.subplots()
         for cn in chans:
             ax.plot(group['t_msec'], group[cn], label=cn)
-        for pw_t in [150e-3, 300e-3]:
-            ax.axvline(pw_t, color='r')
+        ax.set_xlim([2, 9])
         ax.legend()
         plt.show()
         break

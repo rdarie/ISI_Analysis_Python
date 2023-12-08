@@ -115,6 +115,7 @@ lfp_sample_rate = int(1.5e4)
 nominal_dt = float(lfp_sample_rate) ** -1 * 1e6
 epoch_t = np.arange(left_sweep, right_sweep, nominal_dt)
 nominal_num_samp = epoch_t.shape[0]
+
 def assign_locations(t, loc_df=None):
     for row_idx, row in loc_df.iterrows():
         if (t > row['t_start']) & (t < row['t_end']):

@@ -1,12 +1,8 @@
 import pandas as pd
 from pathlib import Path
 import json
-from isicpy.utils import makeFilterCoeffsSOS, getThresholdCrossings
-from scipy import signal
-import numpy as np
-from sklearn.preprocessing import StandardScaler
+from isicpy.clinc_lookup_tables import clinc_sample_rate, sid_to_intan, emg_sample_rate, dsi_trig_sample_rate
 
-clinc_sample_rate = 36931.8
 '''filterOpts = {
     'high': {
         'Wn': 1000.,
@@ -15,14 +11,17 @@ clinc_sample_rate = 36931.8
         'ftype': 'butter'
     },
 }'''
-
-clinc_sample_interval = pd.Timedelta(27077, unit='ns').to_timedelta64()
-clinc_sample_interval_sec = float(clinc_sample_interval) * 1e-9
-clinc_sample_rate = (clinc_sample_interval_sec) ** -1
-
-folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/20231109-Phoenix")
-# file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
+'''
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311071300-Phoenix")
+file_name_list = [
+    "MB_1699382682_316178", "MB_1699383052_618936", "MB_1699383757_778055", "MB_1699384177_953948",
+    "MB_1699382925_691816", "MB_1699383217_58381", "MB_1699383957_177840"
+    ]
+'''
+'''
+folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/202311091300-Phoenix")
 file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
+'''
 
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
 file_name_list = [
@@ -30,7 +29,6 @@ file_name_list = [
     'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
 
-file_name_list = ['MB_1700672668_26337', 'MB_1700673350_780580']
 for file_name in file_name_list:
     print(f"rereferencing {file_name}")
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
@@ -41,5 +39,3 @@ for file_name in file_name_list:
         reref_df[key] = clinc_df[key] - clinc_df[value]
     reref_df.to_parquet(folder_path / (file_name + '_clinc_reref.parquet'))
     print('\tDone')
-
-

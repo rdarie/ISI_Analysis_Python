@@ -5,6 +5,7 @@ import pandas as pd
 from pathlib import Path
 import json
 from isicpy.utils import makeFilterCoeffsSOS, getThresholdCrossings
+from isicpy.clinc_lookup_tables import clinc_sample_rate, emg_sample_rate, dsi_trig_sample_rate
 from scipy import signal
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -31,10 +32,6 @@ clinc_sample_rate = 36931.8
     },
 }'''
 
-clinc_sample_interval = pd.Timedelta(27077, unit='ns').to_timedelta64()
-clinc_sample_interval_sec = float(clinc_sample_interval) * 1e-9
-clinc_sample_rate = clinc_sample_interval_sec ** -1
-
 folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/20231109-Phoenix")
 # file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
 file_name_list = ["MB_1699560317_650555"]
@@ -45,62 +42,86 @@ file_name_list = [
     'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
 
-file_name_list = ['MB_1700671568_714180']
+file_name_list = [
+    'MB_1700672668_26337', 'MB_1700673350_780580']
 
+lfp_dict = {}
 for file_name in file_name_list:
-
-    lfp_path = (file_name + '_epoched_lfp.parquet')
-    pdf_path = folder_path / "figures" / (file_name + '_epoched_lfp.pdf')
+    # lfp, trial averaged
+    '''lfp_path = (file_name + '_epoched_lfp.parquet')
+    pdf_path = folder_path / "figures" / ('epoched_lfp.pdf')
     group_features = ['eid', 'pw']
-    relplot_kwargs = dict(estimator='mean', errorbar='se', hue='amp')
+    relplot_kwargs = dict(estimator='mean', errorbar='se', hue='amp')'''
 
+    # lfp, single trial
     '''
     lfp_path = (file_name + '_epoched_lfp.parquet')
-    pdf_path = folder_path / "figures" / (file_name + '_epoched_lfp_single.pdf')
+    pdf_path = folder_path / "figures" / ('epoched_lfp_single.pdf')
     group_features = ['eid', 'pw', 'amp']
     relplot_kwargs = dict(estimator=None, units='timestamp')
     '''
 
-    '''
+    # reref, trial averaged
     lfp_path = (file_name + '_epoched_reref_lfp.parquet')
-    pdf_path = folder_path / "figures" / (file_name + '_epoched_reref_lfp.pdf')
+    pdf_path = folder_path / "figures" / ('epoched_reref_lfp.pdf')
     group_features = ['eid', 'pw']
     relplot_kwargs = dict(estimator='mean', errorbar='se', hue='amp')
-    '''
-
+    # reref, single trial
     '''
     lfp_path = (file_name + '_epoched_reref_lfp.parquet')
-    pdf_path = folder_path / "figures" / (file_name + '_epoched_reref_lfp_single.pdf')
+    pdf_path = folder_path / "figures" / ('epoched_reref_lfp_single.pdf')
     group_features = ['eid', 'pw', 'amp']
     relplot_kwargs = dict(estimator=None, units='timestamp')
     '''
 
-    lfp_df = pd.read_parquet(folder_path / lfp_path)
-    plot_df = lfp_df.stack().reset_index().rename(columns={0: 'value'})
-    plot_df.loc[:, 't_msec'] = plot_df['t'] * 1e3
-    t_min, t_max = plot_df['t_msec'].min(), plot_df['t_msec'].max()
-    dz0 = 1e-2  # 10 us min
-    if not os.path.exists(folder_path / "figures"):
-        os.makedirs(folder_path / "figures")
-    with PdfPages(pdf_path) as pdf:
-        for name, group in plot_df.groupby(group_features):
-            if 'amp' in group_features:
-                eid, pw, amp = name
-            else:
-                eid, pw = name
-            g = sns.relplot(
-                data=group,
-                col='channel', col_wrap=6,
-                x='t_msec', y='value',
-                kind='line',
-                facet_kws=dict(sharey=False),
-                **relplot_kwargs
-                )
-            for ax in g.axes.flatten():
-                ax.set_xlim(t_min, 2)
-                for line_t in [pw * 1e-3 + dz0, pw * 5e-3 + dz0]:
-                    ax.axvline(line_t, color='r')
-            if 'amp' in group_features:
-                g.figure.suptitle(f'amp: {amp} uA')
-            pdf.savefig()
-            plt.close()
+    # reref, trial averaged, per pulse
+    '''
+    lfp_path = (file_name + '_epoched_reref_lfp_per_pulse.parquet')
+    pdf_path = folder_path / "figures" / ('epoched_reref_lfp_per_pulse.pdf')
+    group_features = ['eid', 'pw']
+    relplot_kwargs = dict(estimator='mean', errorbar='se', hue='amp')
+    '''
+
+    # lfp, trial averaged, per pulse
+    '''
+    lfp_path = (file_name + '_epoched_lfp_per_pulse.parquet')
+    pdf_path = folder_path / "figures" / ('epoched_lfp_per_pulse.pdf')
+    group_features = ['eid', 'pw']
+    relplot_kwargs = dict(estimator='mean', errorbar='se', hue='amp')
+    '''
+
+    lfp_dict[file_name] = pd.read_parquet(folder_path / lfp_path)
+
+lfp_df = pd.concat(lfp_dict, names=['block'])
+del lfp_dict
+
+plot_df = lfp_df.stack().reset_index().rename(columns={0: 'value'})
+plot_df.loc[:, 't_msec'] = plot_df['t'] * 1e3
+t_min, t_max = plot_df['t_msec'].min(), plot_df['t_msec'].max()
+dz0 = 1e-2  # 10 us min
+if not os.path.exists(folder_path / "figures"):
+    os.makedirs(folder_path / "figures")
+with PdfPages(pdf_path) as pdf:
+    for name, group in plot_df.groupby(group_features):
+        if 'amp' in group_features:
+            eid, pw, amp = name
+        else:
+            eid, pw = name
+        g = sns.relplot(
+            data=group,
+            col='channel', col_wrap=6,
+            x='t_msec', y='value',
+            kind='line',
+            facet_kws=dict(sharey=False),
+            **relplot_kwargs
+            )
+        for ax in g.axes.flatten():
+            ax.set_xlim(1, t_max)
+            '''
+            for line_t in [pw * 1e-3 + dz0, pw * 5e-3 + dz0]:
+                ax.axvline(line_t, color='r')
+                '''
+        if 'amp' in group_features:
+            g.figure.suptitle(f'amp: {amp} uA')
+        pdf.savefig()
+        plt.close()
