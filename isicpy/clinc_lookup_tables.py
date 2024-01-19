@@ -46,5 +46,6 @@ cactus_to_sid = {
 }
 
 dsi_mb_clock_offsets = {
-    '202311221100-Phoenix': -12
+    '202311221100-Phoenix': -12,
+    '202312080900-Phoenix': -6,
 }

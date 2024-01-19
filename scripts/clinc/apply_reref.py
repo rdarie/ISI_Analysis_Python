@@ -29,6 +29,18 @@ file_name_list = [
     'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
 
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+file_name_list = [
+    "MB_1702047397_450767", "MB_1702048897_896568", "MB_1702049441_627410",
+    "MB_1702049896_129326", "MB_1702050154_688487", "MB_1702051241_224335"
+]
+file_name_list = [
+    "MB_1702050154_688487", "MB_1702051241_224335"
+]
+
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
+
 for file_name in file_name_list:
     print(f"rereferencing {file_name}")
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
@@ -37,5 +49,5 @@ for file_name in file_name_list:
     reref_df = pd.DataFrame(0, index=clinc_df.index, columns=[key for key in reref_lookup.keys()])
     for key, value in reref_lookup.items():
         reref_df[key] = clinc_df[key] - clinc_df[value]
-    reref_df.to_parquet(folder_path / (file_name + '_clinc_reref.parquet'))
+    reref_df.to_parquet(folder_path / (file_name + '_clinc_reref.parquet'), engine='fastparquet')
     print('\tDone')

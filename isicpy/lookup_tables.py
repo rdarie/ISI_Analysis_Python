@@ -1,5 +1,21 @@
 import palettable
 
+dsi_channels = {
+'PhoenixRight870-2:EMG': 'Right EDL',
+'PhoenixRight870-2:EMG.1': 'Right BF',
+'PhoenixRight870-2:EMG.2': 'Right GAS',
+'PhoenixLeft867-2:EMG': 'Left EDL',
+'PhoenixLeft867-2:EMG.1': 'Left BF',
+'PhoenixLeft867-2:EMG.2': 'Left GAS',
+}
+
+# Col 2:, EMG, mV, Sample Rate: 500.00
+# Col 3:, EMG, mV, Sample Rate: 500.00
+# Col 4:, EMG, mV, Sample Rate: 500.00
+# Col 5:, EMG, mV, Sample Rate: 500.00
+# Col 6:, EMG, mV, Sample Rate: 500.00
+# Col 7:, EMG, mV, Sample Rate: 500.00
+
 HD64_topo_list = ([
     [-1, -1, 60, 55, 58, 63, -1, -1],
     [24, 54, 47, 46, 53, 52, 59, 25],

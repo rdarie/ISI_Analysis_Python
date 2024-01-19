@@ -12,6 +12,12 @@ file_name_list = [
     "MB_1699382682_316178", "MB_1699383052_618936", "MB_1699383757_778055", "MB_1699384177_953948",
     "MB_1699382925_691816", "MB_1699383217_58381", "MB_1699383957_177840"
 ]
+
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+file_name_list = [
+    "MB_1702047397_450767",  "MB_1702048897_896568",  "MB_1702049441_627410",
+    "MB_1702049896_129326",  "MB_1702050154_688487",  "MB_1702051241_224335"
+]
 for file_name in file_name_list:
     file_timestamp_parts = file_name.split('_')
     file_start_time = pd.Timestamp(float(file_timestamp_parts[1]), unit='s', tz='EST')

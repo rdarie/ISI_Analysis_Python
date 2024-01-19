@@ -61,6 +61,7 @@ def sanitize_triggers(
     srs.loc[~valid_duration] = fill_val
     return srs
 
+
 clinc_sample_interval_sec = float(clinc_sample_rate ** -1)
 thresh_opts = dict(
     thresh=0.5, fs=1000, iti=None, absVal=False,
@@ -76,6 +77,14 @@ file_name_list = [
     'MB_1700670158_174163', 'MB_1700671071_947699', 'MB_1700671568_714180',
     'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
+
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+file_name_list = [
+    "MB_1702047397_450767", "MB_1702048897_896568", "MB_1702049441_627410",
+    "MB_1702049896_129326", "MB_1702050154_688487", "MB_1702051241_224335"
+]
+file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
+
 fine_offsets = {}
 for file_name in file_name_list:
     print(file_name)

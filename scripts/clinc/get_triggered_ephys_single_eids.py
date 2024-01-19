@@ -7,16 +7,18 @@ from scipy import signal
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-'''filterOpts = {
-    'high': {
-        'Wn': 1000.,
-        'N': 2,
-        'btype': 'high',
+clinc_sample_interval_sec = float(clinc_sample_rate ** -1)
+
+filterOptsClinc = {
+    'low': {
+        'Wn': 1500.,
+        'N': 4,
+        'btype': 'low',
         'ftype': 'butter'
     },
-}'''
-
-clinc_sample_interval_sec = float(clinc_sample_rate ** -1)
+}
+filterCoeffsClinc = makeFilterCoeffsSOS(filterOptsClinc.copy(), clinc_sample_rate)
+apply_clinc_filters = False
 
 folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/20231109-Phoenix")
 file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
@@ -28,46 +30,57 @@ file_name_list = [
     'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
 file_name_list = ['MB_1700672668_26337', 'MB_1700673350_780580']
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+file_name_list = [
+    "MB_1702047397_450767", "MB_1702048897_896568", "MB_1702049441_627410",
+    "MB_1702049896_129326", "MB_1702050154_688487", "MB_1702051241_224335"
+]
+file_name_list = ["MB_1702050154_688487"]
 per_pulse = False
 
 for file_name in file_name_list:
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
+    if apply_clinc_filters:
+        clinc_df = pd.DataFrame(
+            signal.sosfiltfilt(filterCoeffsClinc, clinc_df, axis=0),
+            index=clinc_df.index, columns=clinc_df.columns)
     artifact_df = pd.read_parquet(folder_path / (file_name + '_average_zscore.parquet'))
     reref_df = pd.read_parquet(folder_path / (file_name + '_clinc_reref.parquet'))
+    if apply_clinc_filters:
+        reref_df = pd.DataFrame(
+            signal.sosfiltfilt(filterCoeffsClinc, reref_df, axis=0),
+            index=reref_df.index, columns=reref_df.columns)
     # filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), clinc_sample_rate)
     if per_pulse:
         stim_info = pd.read_parquet(folder_path / (file_name + '_stim_info_per_pulse.parquet'))
     else:
         stim_info = pd.read_parquet(folder_path / (file_name + '_stim_info.parquet'))
 
-    left_sweep = 0
-    right_sweep = 9e-3
-    samples_left = int(-left_sweep / clinc_sample_interval_sec)
+    left_sweep = -2e-3
+    right_sweep = 20e-3
+    samples_left = int(left_sweep / clinc_sample_interval_sec)
     samples_right = int(right_sweep / clinc_sample_interval_sec)
-    t = np.arange(-samples_left, samples_right) * clinc_sample_interval_sec
+    t = np.arange(samples_left, samples_right) * clinc_sample_interval_sec
     num_samples = t.shape[0]
 
     epoched_dict = {}
     epoched_artifact_dict = {}
     reref_dict = {}
-    if per_pulse:
-        epoch_labels = ['timestamp', 'eid', 'amp', 'freq', 'pw', 'train_idx', 'rank_in_train']
-    else:
-        epoch_labels = ['timestamp', 'eid', 'amp', 'freq', 'pw']
+    epoch_labels = ['timestamp', 'eid', 'amp', 'freq', 'pw', 'train_idx', 'rank_in_train']
     for timestamp, group in stim_info.groupby('timestamp'):
         key = tuple(group.reset_index().loc[0, epoch_labels])
-        first_index = np.flatnonzero(clinc_df.index > timestamp)[0]
+        first_index = np.flatnonzero(clinc_df.index >= timestamp)[0]
 
-        epoched_dict[key] = clinc_df.iloc[first_index:first_index + num_samples, :].copy()
+        epoched_dict[key] = clinc_df.iloc[first_index + samples_left:first_index + samples_right, :].copy()
         epoched_dict[key].index = t
-        epoched_dict[key] = epoched_dict[key] - epoched_dict[key].mean()
+        epoched_dict[key] = epoched_dict[key]
 
-        epoched_artifact_dict[key] = artifact_df.iloc[first_index:first_index + num_samples, :].copy()
+        epoched_artifact_dict[key] = artifact_df.iloc[first_index + samples_left:first_index + samples_right, :].copy()
         epoched_artifact_dict[key].index = t
 
-        reref_dict[key] = reref_df.iloc[first_index:first_index + num_samples, :].copy()
+        reref_dict[key] = reref_df.iloc[first_index + samples_left:first_index + samples_right, :].copy()
         reref_dict[key].index = t
-        reref_dict[key] = reref_dict[key] - reref_dict[key].mean()
+        reref_dict[key] = reref_dict[key]
 
     lfp_df = pd.concat(epoched_dict, names=epoch_labels + ['t'])
     lfp_df.columns.name = 'channel'

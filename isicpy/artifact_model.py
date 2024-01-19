@@ -44,9 +44,11 @@ def triexponential(t, amp1, tau1, amp2, tau2, amp3, tau3):
         print(f"NaNs in biexponential!")
     return return_val
 
+
 def exponential(t, amp, tau):
     output = amp * np.exp(-t / tau)
     return output
+
 
 def offset_exponential(t, amp, tau, offset):
     output = amp * np.exp(-t / tau) + offset

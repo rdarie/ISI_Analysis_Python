@@ -17,7 +17,7 @@ filterOpts = {
         'ftype': 'butter'
     },
 }
-per_pulse = True
+per_pulse = False
 
 folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/202311091300-Phoenix")
 file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
@@ -33,6 +33,17 @@ file_name_list = [
     ]
 iti_lookup = {
     fn: 1. for fn in file_name_list
+}
+
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+file_name_list = [
+    "MB_1702047397_450767", "MB_1702048897_896568", "MB_1702049441_627410",
+    "MB_1702049896_129326", "MB_1702050154_688487", "MB_1702051241_224335"
+]
+file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
+
+iti_lookup = {
+    fn: .5 for fn in file_name_list
 }
 
 for file_name in file_name_list:

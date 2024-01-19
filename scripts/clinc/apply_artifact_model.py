@@ -25,8 +25,9 @@ sns.set(
 
 from matplotlib import pyplot as plt
 
-clinc_sample_rate = 36931.8
-run_on_reref = True
+run_on_reref = False
+per_pulse = False
+
 '''filterOpts = {
     'high': {
         'Wn': 1000.,
@@ -53,6 +54,11 @@ if run_on_reref:
     file_suffix = '_reref'
 else:
     file_suffix = ''
+if per_pulse:
+    pp_suffix = '_per_pulse'
+else:
+    pp_suffix = ''
+
 fit_lims = [1e-3, 9e-3]
 amp_lims = [1e-3, 2e-3]
 offset_lims = [8e-3, 9e-3]
@@ -84,7 +90,7 @@ init_exp_params.add('offset', value=0, vary=True)
 
 lfp_dict = {}
 for file_name in file_name_list:
-    lfp_path = (file_name + f'_epoched{file_suffix}_lfp.parquet')
+    lfp_path = (file_name + f'_epoched{file_suffix}_lfp{pp_suffix}.parquet')
     lfp_dict[file_name] = pd.read_parquet(folder_path / lfp_path)
 
 lfp_df = pd.concat(lfp_dict, names=['block'])
@@ -154,13 +160,13 @@ for idx, (name, group) in enumerate(tqdm(lfp_df.groupby(group_features))):
         plt.show()
 
 ecaps = pd.concat(out_ecaps, axis='index', names=group_features + ['t'])
-ecaps.to_parquet(folder_path / f'artifact_model_ecaps{file_suffix}.parquet', engine='fastparquet')
+ecaps.to_parquet(folder_path / f'artifact_model_ecaps{file_suffix}{pp_suffix}.parquet', engine='fastparquet')
 exps = pd.concat(out_exps, axis='index', names=group_features + ['t'])
-exps.to_parquet(folder_path / f'artifact_model_exps{file_suffix}.parquet', engine='fastparquet')
+exps.to_parquet(folder_path / f'artifact_model_exps{file_suffix}{pp_suffix}.parquet', engine='fastparquet')
 predictions = pd.concat(out_predictions, axis='index', names=group_features + ['t'])
-predictions.to_parquet(folder_path / f'artifact_model_predictions{file_suffix}.parquet', engine='fastparquet')
+predictions.to_parquet(folder_path / f'artifact_model_predictions{file_suffix}{pp_suffix}.parquet', engine='fastparquet')
 parameters = pd.concat(out_params, axis='index', names=group_features + ['component', 'parameter'])
-parameters.to_parquet(folder_path / f'artifact_model_parameters{file_suffix}.parquet', engine='fastparquet')
+parameters.to_parquet(folder_path / f'artifact_model_parameters{file_suffix}{pp_suffix}.parquet', engine='fastparquet')
 
 plot_df = predictions.stack().reset_index().rename(columns={0: 'value'})
 plot_df.loc[:, 't_msec'] = plot_df['t'] * 1e3
@@ -169,7 +175,7 @@ t_min, t_max = plot_df['t_msec'].min(), plot_df['t_msec'].max()
 if not os.path.exists(folder_path / "figures"):
     os.makedirs(folder_path / "figures")
 
-pdf_path = folder_path / "figures" / f"artifact_model_predictions{file_suffix}.pdf"
+pdf_path = folder_path / "figures" / f"artifact_model_predictions{file_suffix}{pp_suffix}.pdf"
 relplot_kwargs = dict(
     estimator='mean', errorbar='se', hue='amp', palette='crest')
 plot_features = 'eid'
@@ -179,8 +185,10 @@ with PdfPages(pdf_path) as pdf:
             lfp_df.xs(name, level=plot_features)
             .stack().reset_index().rename(columns={0: 'value'}))
         data_group['t_msec'] = data_group['t'] * 1e3
+        t = data_group.index.get_level_values('t').to_numpy()
+        fit_mask = (t >= fit_lims[0]) & (t <= fit_lims[1])
         g = sns.relplot(
-            data=data_group,
+            data=data_group.loc[fit_mask, :],
             col='channel', col_wrap=6,
             x='t_msec', y='value',
             kind='line',

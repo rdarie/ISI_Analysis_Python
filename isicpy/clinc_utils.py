@@ -44,3 +44,13 @@ def assign_stim_metadata(t, stim_dict_list=None):
         if (t > row['start_time']) & (t < row['end_time']):
             return row['params']
     return None
+
+def assign_tens_metadata(t, stim_dict_list=None):
+    for row in stim_dict_list:
+        if (t > row['start_time']) & (t < row['end_time']):
+            output = {
+                key: row[key]
+                for key in ['location', 'amp', 'pw']
+            }
+            return pd.Series(output)
+    return None
