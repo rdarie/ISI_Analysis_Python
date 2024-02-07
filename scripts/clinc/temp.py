@@ -27,3 +27,7 @@ filtered = pd.DataFrame(
 plt.plot(clinc_df.iloc[:int(4e4), 0])
 plt.plot(filtered.iloc[:int(4e4), 0])
 
+file_name = 'MB_1705952197_530018'
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401221300-Benchtop")
+clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
+valid_data_df = pd.read_parquet(folder_path / (file_name + '_valid_clinc_data.parquet'))

@@ -31,7 +31,7 @@ file_name_list = [
     "MB_1699382682_316178", "MB_1699383052_618936", "MB_1699383757_778055", "MB_1699384177_953948",
     "MB_1699382925_691816", "MB_1699383217_58381", "MB_1699383957_177840"
     ]
-dsi_block_list = []'''
+dsi_block_list = []
 
 
 folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/202311091300-Phoenix")
@@ -39,22 +39,33 @@ file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555", 'MB_1699560792
 dsi_block_list = ['Block0001', 'Block0002']
 
 
-'''folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
 file_name_list = [
     'MB_1700670158_174163', 'MB_1700671071_947699', 'MB_1700671568_714180',
     'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
-dsi_block_list = ['Block0001', 'Block0002', 'Block0003', 'Block0004', 'Block0005']'''
+dsi_block_list = ['Block0001', 'Block0002', 'Block0003', 'Block0004', 'Block0005']
 
 
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401221300-Benchtop")
 file_name_list = [
     "MB_1702047397_450767",  "MB_1702048897_896568",  "MB_1702049441_627410",
     "MB_1702049896_129326",  "MB_1702050154_688487",  "MB_1702051241_224335"
-]
-dsi_block_list = ['Block0001', 'Block0002', 'Block0003', 'Block0004', 'Block0005', 'Block0006']
+    ]
 file_name_list = []
+# file_name_list = []
+file_name_list = ['MB_1705952197_530018']
+
+dsi_block_list = ['Block0001', 'Block0002', 'Block0003', 'Block0004', 'Block0005', 'Block0006']
 dsi_block_list = ['Block0003', 'Block0004']
+dsi_block_list = []
+'''
+
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
+with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+    general_metadata = json.load(f)
+    file_name_list = general_metadata['file_name_list']
+    dsi_block_list = general_metadata['dsi_block_list']
 
 for file_name in file_name_list:
     print(file_name)
@@ -63,9 +74,21 @@ for file_name in file_name_list:
     file_start_time = pd.Timestamp(
         float('.'.join(file_timestamp_parts[1:3])), unit='s', tz='EST')
 
-    if os.path.exists(folder_path / 'yaml_lookup.json'):
+    # get the HD64 routing
+    yml_path = None
+    # Try to get the HD64 routing from the log file
+    log_info_csv = pd.read_csv(folder_path / f'{file_name}_log.csv')
+    mask = log_info_csv['CODE'].isin(['config_hd64_e_switches'])
+    relevant_codes = log_info_csv.loc[mask, :]
+    if relevant_codes.shape[0] == 1:
+        yml_filename = Path(relevant_codes.iloc[0, :]['FILENAME']).name
+        yml_path = folder_path/ f'config_files/{yml_filename}'
+    # if we couldn't find the yml path that way, maybe we wrote it down
+    if (yml_path is None) and (os.path.exists(folder_path / 'analysis_metadata/yaml_lookup.json')):
         with open(folder_path / 'yaml_lookup.json', 'r') as f:
             yml_path = json.load(f)[file_name]
+    # if we found it by either method
+    if yml_path is not None:
         with open(folder_path / yml_path, 'r') as f:
             routing_info_str = ''.join(f.readlines())
             routing_info = yaml.safe_load(routing_info_str.replace('\t', '  '))

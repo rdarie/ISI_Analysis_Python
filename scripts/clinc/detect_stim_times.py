@@ -88,6 +88,7 @@ for file_name in file_name_list:
     stim_info_csv = pd.read_csv(folder_path / f'{file_name}_log.csv')
     mask = stim_info_csv['CODE'].isin(['stim_load_config', 'usb_stream_stop'])
     relevant_codes = stim_info_csv.loc[mask, :]
+
     stim_info_list = []
     for idx in range(mask.sum()):
         if relevant_codes.iloc[idx, :]['CODE'] == 'stim_load_config':

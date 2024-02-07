@@ -3,14 +3,16 @@
 %created by CLINC and will save into .mat file
 
 
-function [outputStruct, outputFileName] = formattedBIN(folder_path, saving)
+function [outputStruct, outputFileName] = formattedBIN(folder_path, saving, keep_in_memory)
     if nargin < 1
         folder_path = uigetdir(pwd, "Select Capture Folder");
     end
     if nargin < 2
         saving = true;
     end
-
+    if nargin < 3
+        keep_in_memory = false;
+    end
     
     if ~exist(folder_path, "dir")
         error("Could not find requested folder!")
@@ -46,15 +48,16 @@ function [outputStruct, outputFileName] = formattedBIN(folder_path, saving)
         data_this_file.usbPacketCount = contents(:, 70);
         
         if saving
-        [path, name, ~] = fileparts(file_name);
-        outputFileName{this_file} = strcat(path, filesep, name, ".mat");
-        fprintf("Saving output file to %s...\n", outputFileName{this_file});
-        save(outputFileName{this_file}, "data_this_file", '-v7.3')
+            [path, name, ~] = fileparts(file_name);
+            outputFileName{this_file} = strcat(path, filesep, name, ".mat");
+            fprintf("Saving output file to %s...\n", outputFileName{this_file});
+            save(outputFileName{this_file}, "data_this_file", '-v7.3')
         else
             outputFileName = [];
         end
-        % outputStruct{[this_file]} = data_this_file;
-
+        if keep_in_memory
+            outputStruct{[this_file]} = data_this_file;
+        end
     end
     disp("Done!")
 end
