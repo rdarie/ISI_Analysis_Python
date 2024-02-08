@@ -62,18 +62,22 @@ def visualize_dataset():
     ]
     file_name = 'MB_1702049896_129326'
 
-    if os.path.exists(folder_path / 'dsi_block_lookup.json'):
-        with open(folder_path / 'dsi_block_lookup.json', 'r') as f:
+    if os.path.exists(folder_path / 'analysis_metadata/dsi_block_lookup.json'):
+        with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
             emg_block_name = json.load(f)[file_name][0]
     else:
         emg_block_name = None
 
-    # custom_name = 'average_zscore'
-    custom_name = 'clinc_reref'
+    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
+    file_name = 'MB_1703014372_270676'
+    emg_block_name = 'Block0001'
+
+    custom_name = 'average_zscore'
+    # custom_name = 'clinc_reref'
     filterCoeffsCustom = filterCoeffsClinc
 
 
-    stim_info_file = (file_name + '_tens_info.parquet')
+    stim_info_file = (file_name + '_stim_info.parquet')
     custom_path = folder_path / (file_name + f'_{custom_name}.parquet')
 
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
@@ -81,8 +85,9 @@ def visualize_dataset():
     t_start_clinc = 0
 
     if emg_block_name is not None:
-        clock_difference = dsi_mb_clock_offsets[folder_path.stem]
-        with open(folder_path / 'dsi_to_mb_fine_offsets.json', 'r') as f:
+        with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+            clock_difference = json.load(f)["dsi_clock_difference"]
+        with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'r') as f:
             dsi_fine_offset = json.load(f)[file_name][emg_block_name]
         dsi_total_offset = pd.Timedelta(clock_difference + dsi_fine_offset, unit='s')
         print(f'DSI offset = {clock_difference} + {dsi_fine_offset:.3f} = {dsi_total_offset.total_seconds():.3f}')

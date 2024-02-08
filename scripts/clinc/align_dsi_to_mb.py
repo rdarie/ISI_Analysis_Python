@@ -67,8 +67,9 @@ thresh_opts = dict(
     thresh=0.5, fs=1000, iti=None, absVal=False,
     keep_max=False, edgeType='both',
     plot_opts=dict(whichPeak=10, nSec=12))
-plotting = False
+plotting = True
 
+'''
 folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/202311091300-Phoenix")
 file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
 
@@ -84,6 +85,18 @@ file_name_list = [
     "MB_1702049896_129326", "MB_1702050154_688487", "MB_1702051241_224335"
 ]
 file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
+'''
+
+# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401091300-Phoenix")
+
+routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
+'''
+with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+    general_metadata = json.load(f)
+    file_name_list = general_metadata['file_name_list']
+'''
+file_name_list = routing_config_info['child_file_name'].to_list()
 
 fine_offsets = {}
 for file_name in file_name_list:
@@ -109,7 +122,7 @@ for file_name in file_name_list:
     ax.plot(clinc_trigs)
     plt.show()'''
 
-    with open(folder_path / 'dsi_block_lookup.json', 'r') as f:
+    with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
         emg_block_list = json.load(f)[file_name]
 
     for emg_block_name in emg_block_list:
@@ -148,5 +161,5 @@ for file_name in file_name_list:
             plt.show()
         print('\tDone')
 
-    with open(folder_path / 'dsi_to_mb_fine_offsets.json', 'w') as f:
+    with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'w') as f:
         json.dump(fine_offsets, f, indent=4)

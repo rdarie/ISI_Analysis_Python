@@ -37,6 +37,7 @@ per_pulse = False
     },
 }'''
 
+'''
 folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/20231109-Phoenix")
 # file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
 file_name_list = ["MB_1699560317_650555"]
@@ -46,9 +47,15 @@ file_name_list = [
     'MB_1700670158_174163', 'MB_1700671071_947699', 'MB_1700671568_714180',
     'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
     ]
+    '''
 
 file_name_list = [
     'MB_1700672668_26337', 'MB_1700673350_780580']
+
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
+with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+    general_metadata = json.load(f)
+    file_name_list = general_metadata['file_name_list']
 
 if run_on_reref:
     file_suffix = '_reref'

@@ -1,6 +1,8 @@
 from pathlib import Path
 import pandas as pd
+import json, os
 
+'''
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
 file_name_list = [
     'MB_1700670158_174163', 'MB_1700671071_947699', 'MB_1700671568_714180',
@@ -18,6 +20,15 @@ file_name_list = [
     "MB_1702047397_450767",  "MB_1702048897_896568",  "MB_1702049441_627410",
     "MB_1702049896_129326",  "MB_1702050154_688487",  "MB_1702051241_224335"
 ]
+'''
+
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
+with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+    general_metadata = json.load(f)
+    file_name_list = general_metadata['file_name_list']
+    dsi_block_list = general_metadata['dsi_block_list']
+
+'''
 for file_name in file_name_list:
     file_timestamp_parts = file_name.split('_')
     file_start_time = pd.Timestamp(float(file_timestamp_parts[1]), unit='s', tz='EST')
@@ -30,3 +41,13 @@ for file_name in file_name_list:
     file_contents = pd.read_parquet(folder_path / (file_name + '_clinc_trigs.parquet'))
     file_stop_time = file_start_time + file_contents.index[-1]
     print(f"{file_name}: starts {file_start_time}, ends {file_stop_time.round(freq='L')}")
+'''
+
+for file_name in file_name_list:
+    file_contents = pd.read_parquet(folder_path / (file_name + '_clinc_trigs.parquet'))
+    print(f"{file_name}: starts {file_contents.index[0].round(freq='s')}, ends {file_contents.index[-1].round(freq='s')}")
+
+print('\n')
+for dsi_block_name in dsi_block_list:
+    file_contents = pd.read_parquet(folder_path / (dsi_block_name + '_dsi_trigs.parquet'))
+    print(f"{dsi_block_name}: starts {file_contents.index[0].round(freq='s')}, ends {file_contents.index[-1].round(freq='s')}")

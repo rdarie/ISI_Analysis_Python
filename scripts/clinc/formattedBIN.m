@@ -36,8 +36,10 @@ function [outputStruct, outputFileName] = formattedBIN(folder_path, saving, keep
         data_this_file.Meta.conversionTime = datetime('now');
         data_this_file.ChannelData = contents(:, 1:64);
         data_this_file.SyncWave = contents(:, 65);
-        data_this_file.StimStart = contents(:, 66);
-        data_this_file.MuxConfig = contents(:, 67);
+        
+        % % these fields are not yet implemented on the CLINC
+        % data_this_file.StimStart = contents(:, 66);
+        % data_this_file.MuxConfig = contents(:, 67);
        
         sample_count_MSB = string(dec2bin(contents(:, 68)));
         sample_count_LSB = string(dec2bin(contents(:, 69)));

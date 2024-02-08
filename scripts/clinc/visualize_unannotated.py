@@ -27,10 +27,11 @@ filterOptsClinc = {
 }
 filterCoeffsClinc = makeFilterCoeffsSOS(filterOptsClinc.copy(), clinc_sample_rate)
 
-synch_emg = True
-apply_emg_filters = True
+emg_is_synched = True
+apply_emg_filters = False
 apply_clinc_filters = False
 show_clinc_spectrogram = True
+
 def visualize_dataset():
     app = ephyviewer.mkQApp()
     win = ephyviewer.MainViewer(debug=False)
@@ -67,6 +68,14 @@ def visualize_dataset():
     file_name = 'MB_1702049896_129326'
     emg_block_name = 'Block0004'
 
+    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
+    file_name = 'MB_1703014372_270676'
+    emg_block_name = 'Block0001'
+
+    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401091300-Phoenix")
+    file_name = 'MB_1704819185'
+    emg_block_name = 'Block0001'
+
     # file_timestamp_parts = file_name.split('_')
     # file_start_time = pd.Timestamp(float('.'.join(file_timestamp_parts[1:3])), unit='s', tz='EST')
     t_start_clinc = 0
@@ -78,9 +87,10 @@ def visualize_dataset():
         emg_df = pd.read_parquet(folder_path / f"{emg_block_name}_emg.parquet")
         dsi_trigs = pd.read_parquet(folder_path / f"{emg_block_name}_dsi_trigs.parquet")
 
-        if synch_emg:
-            clock_difference = dsi_mb_clock_offsets[folder_path.stem]
-            with open(folder_path / 'dsi_to_mb_fine_offsets.json', 'r') as f:
+        if emg_is_synched:
+            with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+                clock_difference = json.load(f)["dsi_clock_difference"]
+            with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'r') as f:
                 dsi_fine_offset = json.load(f)[file_name][emg_block_name]
             dsi_total_offset = pd.Timedelta(clock_difference + dsi_fine_offset, unit='s')
             print(f'DSI offset = {clock_difference} + {dsi_fine_offset:.3f} = {dsi_total_offset.total_seconds():.3f}')
