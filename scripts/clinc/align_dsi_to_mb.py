@@ -1,3 +1,5 @@
+#!/usr/bin/env /users/rdarie/anaconda/isi_analysis/bin/python
+
 import matplotlib as mpl
 mpl.use('tkagg')  # generate interactive output
 import pandas as pd
@@ -87,20 +89,30 @@ file_name_list = [
 file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
 '''
 
-# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401091300-Phoenix")
+# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312211300-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
 
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
+
 '''
 with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
     general_metadata = json.load(f)
     file_name_list = general_metadata['file_name_list']
 '''
-file_name_list = routing_config_info['child_file_name'].to_list()
 
+file_name_list = routing_config_info['child_file_name'].to_list()
 fine_offsets = {}
+
+previous_parent_file, previous_emg_file, previous_optimal_lag = None, None, None
+
 for file_name in file_name_list:
-    print(file_name)
+    print(f'Synchronizing {file_name}...')
+
+    this_routing_info = routing_config_info.loc[routing_config_info['child_file_name'] == file_name, :]
+    parent_file_name = this_routing_info['parent_file_name'].iloc[0]
+    print(f'\tIts parent CLINC file is {parent_file_name}')
+
     fine_offsets[file_name] = {}
     clinc_trigs = pd.read_parquet(folder_path / (file_name + '_clinc_trigs.parquet'))['sync_wave']
 
@@ -114,52 +126,73 @@ for file_name in file_name_list:
     clinc_orig = clinc_trigs.copy()
     clinc_trigs = reindex_and_interpolate(clinc_trigs, downsampled_clinc_time)
 
-    '''fig, ax = plt.subplots()
+    '''
+    fig, ax = plt.subplots()
     window_len = pd.Timedelta(12, unit='s')
     plot_mask = clinc_orig.index < clinc_orig.index[0] + window_len
     ax.plot(clinc_orig.loc[plot_mask])
     plot_mask = clinc_trigs.index < clinc_trigs.index[0] + window_len
     ax.plot(clinc_trigs)
-    plt.show()'''
+    plt.show()
+    '''
 
     with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
         emg_block_list = json.load(f)[file_name]
 
     for emg_block_name in emg_block_list:
-        dsi_trigs = pd.read_parquet(folder_path / f"{emg_block_name}_dsi_trigs.parquet").iloc[:, [1]]
-        dsi_trigs.loc[:, :] = minmax_scale(dsi_trigs)
-        dsi_trigs.loc[:, :] = (dsi_trigs > 0.5).astype(int)
-        dsi_trigs = dsi_trigs.iloc[:, 0]
+        print(f'\tOn EMG {emg_block_name}...')
+        if previous_parent_file is not None:
+            if (previous_parent_file == parent_file_name) and (previous_emg_file == emg_block_name):
+                # if we're aligning the same parent to the same emg block, we can just reuse the previous offset
+                fine_offsets[file_name][emg_block_name] = previous_optimal_lag
+                print(f"\t\tReused lag of {int(previous_optimal_lag * 1e3)} samples.")
+                continue
+
+        dsi_analog = pd.read_parquet(folder_path / f"{emg_block_name}_dsi_trigs.parquet")
+        dsi_trigs = dsi_analog.iloc[:, 1].copy()
+        dsi_bounds = dsi_trigs.quantile([5e-2, 95e-2])
+        dsi_trigs = (dsi_trigs - dsi_bounds[5e-2]) / (dsi_bounds[95e-2] - dsi_bounds[5e-2])
 
         tmin = max(dsi_trigs.index[0], clinc_trigs.index[0])
         tmax = min(dsi_trigs.index[-1], clinc_trigs.index[-1])
 
         masked_clinc = clinc_trigs.loc[(clinc_trigs.index >= tmin) & (clinc_trigs.index <= tmax)]
         masked_dsi = dsi_trigs.loc[(dsi_trigs.index >= tmin) & (dsi_trigs.index <= tmax)]
-
+        if masked_dsi.max() - masked_dsi.min() < 1e-2:
+            print('\t\tWarning! DSI channel appears disconnected; Setting fine offset to 0 for manual correction')
+            # plt.plot(masked_dsi)
+            fine_offsets[file_name][emg_block_name] = 0
+            continue
         lags = signal.correlation_lags(masked_clinc.shape[0], masked_dsi.shape[0], mode='full')
         xcorr = signal.correlate(masked_clinc.astype(int).to_numpy(), masked_dsi.astype(int).to_numpy(), mode='full')
 
         mask = (lags > -1501) & (lags < 1501)
         xcorr_srs = pd.Series(xcorr[mask], index=lags[mask])
         optimal_lag_samples = xcorr_srs.idxmax()
-        print(f"the optimal lag is {optimal_lag_samples} samples")
+        print(f"\t\tthe optimal lag is {optimal_lag_samples} samples.")
 
         optimal_lag = optimal_lag_samples * 1e-3
         fine_offsets[file_name][emg_block_name] = optimal_lag
+        
+        previous_parent_file = parent_file_name
+        previous_emg_file = emg_block_name
+        previous_optimal_lag = optimal_lag
 
         if plotting:
             fig, ax = plt.subplots()
             ax.plot(xcorr_srs)
             ax.plot(optimal_lag_samples, xcorr_srs.loc[optimal_lag_samples], 'r*')
-            plt.show()
+            ax.set_title(f'{file_name} synched to {emg_block_name}')
+            #
             fig, ax = plt.subplots()
-            ax.plot(clinc_trigs)
-            plot_dsi = dsi_trigs.copy()
+            ax.plot(masked_clinc, lw=1.5, label='clinc_trigs')
+            plot_dsi = masked_dsi.copy()
             plot_dsi.index = plot_dsi.index + pd.Timedelta(optimal_lag, unit='s')
-            ax.plot(plot_dsi)
+            ax.plot(plot_dsi, '--', lw=2, label='dsi_trigs')
+            ax.legend(loc='upper right')
+            ax.set_title(f'{file_name} synched to {emg_block_name}')
             plt.show()
-        print('\tDone')
+        print('\t\tDone')
 
     with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'w') as f:
         json.dump(fine_offsets, f, indent=4)

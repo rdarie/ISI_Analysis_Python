@@ -41,7 +41,7 @@ def parse_mb_stim_csv(file_path):
 
 def assign_stim_metadata(t, stim_dict_list=None):
     for row in stim_dict_list:
-        if (t > row['start_time']) & (t < row['end_time']):
+        if (t > row['start_time'].total_seconds()) & (t < row['end_time'].total_seconds()):
             return row['params']
     return None
 

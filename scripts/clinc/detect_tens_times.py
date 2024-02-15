@@ -12,16 +12,37 @@ import os
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
 file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
 
-for file_name in file_name_list:
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
+routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
+routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
+routing_config_info['config_end_time'] = routing_config_info['config_end_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
+
+with open(folder_path / 'analysis_metadata/tens_info.json', 'r') as f:
+    tens_info_dict = json.load(f)
+
+for file_name in routing_config_info['child_file_name']:
     print(f"Processing {file_name}...")
+    if file_name in tens_info_dict:
+        tens_info_list = tens_info_dict[file_name]
+    else:
+        continue
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
 
-    with open(folder_path / 'dsi_block_lookup.json', 'r') as f:
+    with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
         emg_block_name = json.load(f)[file_name][0]
 
     dsi_trigs = pd.read_parquet(folder_path / (emg_block_name + '_dsi_trigs.parquet'))
-    clock_difference = dsi_mb_clock_offsets[folder_path.stem]
-    with open(folder_path / 'dsi_to_mb_fine_offsets.json', 'r') as f:
+    clock_difference = None
+    if os.path.exists(folder_path / 'analysis_metadata/dsi_to_mb_coarse_offsets.json'):
+        with open(folder_path / 'analysis_metadata/dsi_to_mb_coarse_offsets.json', 'r') as f:
+            coarse_offsets = json.load(f)
+        if file_name in coarse_offsets:
+            if emg_block_name in coarse_offsets[file_name]:
+                clock_difference = coarse_offsets[file_name][emg_block_name]
+    if clock_difference is None:
+        with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+            clock_difference = json.load(f)["dsi_clock_difference"]
+    with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'r') as f:
         dsi_fine_offset = json.load(f)[file_name][emg_block_name]
     dsi_total_offset = pd.Timedelta(clock_difference + dsi_fine_offset, unit='s')
     print(f'DSI offset = {clock_difference} + {dsi_fine_offset:.3f} = {dsi_total_offset.total_seconds():.3f}')
@@ -38,14 +59,12 @@ for file_name in file_name_list:
         temp, thresh=signal_thresh, fs=dsi_trig_sample_rate, iti=0.1, absVal=False, keep_max=False)
     align_timestamps = dsi_trigs.index[cross_mask].copy()
 
-    with open(folder_path / 'tens_info.json', 'r') as f:
-        tens_info_list = json.load(f)[file_name]
-
     meta_list = []
     for ts in align_timestamps:
         ts_sec = ts.total_seconds()
-        these_params = assign_tens_metadata(ts_sec, tens_info_list).to_frame(name=ts + t_zero).T
-        meta_list.append(these_params)
+        these_params = assign_tens_metadata(ts_sec, tens_info_list)
+        if these_params is not None:
+            meta_list.append(these_params.to_frame(name=ts + t_zero).T)
 
     tens_info = pd.concat(meta_list, names=['timestamp'])
     tens_info.index.name = 'timestamp'

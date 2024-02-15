@@ -39,11 +39,20 @@ filterOpts = {
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
 file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
 
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
+routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
+routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(
+    lambda x: pd.Timestamp(x, tz='GMT'))
+routing_config_info['config_end_time'] = routing_config_info['config_end_time'].apply(
+    lambda x: pd.Timestamp(x, tz='GMT'))
+
 emg_dict = {}
 envelope_dict = {}
 tens_info_dict = {}
-for file_name in file_name_list:
+for file_name in routing_config_info['child_file_name']:
     emg_path = (file_name + '_tens_epoched_emg.parquet')
+    if not os.path.exists(folder_path / emg_path):
+        continue
     envelope_path = (file_name + '_tens_epoched_envelope.parquet')
     tens_info_path = (file_name + '_tens_info.parquet')
     emg_dict[file_name] = pd.read_parquet(folder_path / emg_path)
@@ -57,8 +66,8 @@ del envelope_dict
 tens_info_df = pd.concat(tens_info_dict, names=['block'])
 del tens_info_dict
 
-emg_df.rename(columns=dsi_channels, inplace=True)
-envelope_df.rename(columns=dsi_channels, inplace=True)
+# emg_df.rename(columns=dsi_channels, inplace=True)
+# envelope_df.rename(columns=dsi_channels, inplace=True)
 
 plot_df = emg_df.stack().reset_index().rename(columns={0: 'value'})
 plot_df.loc[:, 't_msec'] = plot_df['t'] * 1e3
@@ -130,7 +139,7 @@ with PdfPages(pdf_path) as pdf:
         g.set_xlabels('Time (msec.)')
         g.set_ylabels('EMG (uV)')
         g._legend.set_title('Channel')
-        g.figure.suptitle(f'amp = {amp} V')
+        g.figure.suptitle(f'TENS amplitude: {amp} V')
         # g.figure.align_labels()
         pdf.savefig()
         plt.close()

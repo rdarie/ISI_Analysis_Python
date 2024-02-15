@@ -9,6 +9,7 @@ from scipy import signal
 from sklearn.preprocessing import StandardScaler
 import yaml
 import os
+from tqdm import tqdm
 
 filterOpts = {
     'high': {
@@ -38,15 +39,18 @@ file_name_list = [
 file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
 '''
 
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401091300-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
+# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312211300-Phoenix")
 
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
+routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
+routing_config_info['config_end_time'] = routing_config_info['config_end_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
+
 '''
 with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
     general_metadata = json.load(f)
     file_name_list = general_metadata['file_name_list']
 '''
-file_name_list = routing_config_info['child_file_name'].to_list()
 
 for idx, this_routing_info in routing_config_info.iterrows():
     file_name = this_routing_info['child_file_name']
@@ -68,38 +72,49 @@ for idx, this_routing_info in routing_config_info.iterrows():
         clinc_df = pd.DataFrame(
             scaler.transform(clinc_df),
             index=clinc_df.index, columns=clinc_df.columns)
-        artifact_signal = (clinc_df ** 2).mean(axis='columns').to_frame(name='average_zscore')
-        artifact_signal.to_parquet(folder_path / (file_name + '_average_zscore.parquet'), engine='fastparquet')
+        artifact_signal = (clinc_df ** 2).median(axis='columns').to_frame(name='average_zscore')
+        artifact_signal.to_parquet(
+            folder_path / (file_name + '_average_zscore.parquet'), engine='fastparquet')
         t_zero = artifact_signal.index[0]
         artifact_signal.index -= t_zero
-        signal_thresh = 8.
+        signal_thresh = 50.
         temp = pd.Series(artifact_signal['average_zscore'].to_numpy())
         if per_pulse:
             this_iti = 2e-3
         else:
-            this_iti = 5e-1
+            this_iti = 1.
         cross_index, cross_mask = getThresholdCrossings(
-            temp, thresh=signal_thresh, fs=clinc_sample_rate, iti=this_iti, absVal=False, keep_max=False)
+            temp, thresh=signal_thresh, fs=clinc_sample_rate, iti=this_iti,
+            absVal=False, keep_max=False)
         align_timestamps = artifact_signal.index[cross_mask].copy()
+        # bla = artifact_signal.index[cross_index.to_numpy()]
         # get stim info csv
         stim_info_csv = pd.read_csv(folder_path / f'{parent_file_name}_log.csv')
-        mask = stim_info_csv['CODE'].isin(['stim_load_config', 'usb_stream_stop'])
+        stim_info_csv.loc[:, 'DATETIME'] = stim_info_csv['DATETIME'].apply(
+            lambda x: pd.Timestamp(x, tz='EST')
+            )
+        mask = (
+            stim_info_csv['CODE'].isin(['stim_load_config', 'usb_stream_stop']) &
+            (stim_info_csv['DATETIME'] >= this_routing_info['config_start_time']) &
+            (stim_info_csv['DATETIME'] <= this_routing_info['config_end_time'])
+        )
         stim_relevant_codes = stim_info_csv.loc[mask, :]
         stim_info_list = []
-        for idx in range(mask.sum()):
+        # print('parsing stim log..')
+        for idx in tqdm(range(mask.sum())):
             if stim_relevant_codes.iloc[idx, :]['CODE'] == 'stim_load_config':
                 this_stim_config = Path(stim_relevant_codes.iloc[idx, :]['FILENAME']).name
-                if idx + 1 <= stim_relevant_codes.shape[0]:
+                if idx + 1 < stim_relevant_codes.shape[0]:
                     this_entry = {
                         'file': f'./config_files/{this_stim_config}',
-                        'start_time': pd.Timestamp(stim_relevant_codes.iloc[idx, :]['DATETIME'], tz='EST'),
-                        'end_time': pd.Timestamp(stim_relevant_codes.iloc[idx + 1, :]['DATETIME'], tz='EST')
+                        'start_time': stim_relevant_codes.iloc[idx, :]['DATETIME'] - t_zero,
+                        'end_time': stim_relevant_codes.iloc[idx + 1, :]['DATETIME'] - t_zero
                     }
                 else:
                     this_entry = {
                         'file': f'./config_files/{this_stim_config}',
-                        'start_time': pd.Timestamp(stim_relevant_codes.iloc[idx, :]['DATETIME'], tz='EST'),
-                        'end_time': clinc_df.index[-1]
+                        'start_time': stim_relevant_codes.iloc[idx, :]['DATETIME'] - t_zero,
+                        'end_time': artifact_signal.index[-1]
                     }
                 stim_info_list.append(this_entry)
         # get the HD64 routing
@@ -110,11 +125,16 @@ for idx, this_routing_info in routing_config_info.iterrows():
         sid_to_eid = {
             c['sid']: c['eid'] for c in routing_info['data']['contacts']
             }
-        for idx, entry in enumerate(stim_info_list):
+        # print('parsing stim csvs..')
+        for idx, entry in enumerate(tqdm(stim_info_list)):
+            # print(f'\t{entry["file"]}')
             full_path = folder_path / entry['file']
             params_df = parse_mb_stim_csv(full_path)
-            params_df.index = [sid_to_eid[cactus_to_sid[c]] for c in params_df.index]
+            params_df.index = [
+                sid_to_eid.get(cactus_to_sid[c], 99)
+                for c in params_df.index]
             params_df.index.name = 'eid'
+
             stim_info_list[idx]['params'] = params_df
         meta_dict = {}
         for ts in align_timestamps:
@@ -144,8 +164,10 @@ for idx, this_routing_info in routing_config_info.iterrows():
         else:
             output_filename = file_name + '_stim_info.parquet'
         stim_info.to_parquet(folder_path / output_filename, engine='fastparquet')
+        nonzero_rank = (stim_info["rank_in_train"] > 0)
+        if nonzero_rank.any():
+            print(f'\t(stim_info["rank_in_train"] > 0).sum() = {nonzero_rank.sum()}')
+            print(f'{stim_info.loc[nonzero_rank, :]}')
         print('\t Success!')
     except Exception as e:
         print('\t Failed!')
-        raise e
-        break

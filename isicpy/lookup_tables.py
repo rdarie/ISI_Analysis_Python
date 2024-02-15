@@ -1,4 +1,7 @@
 import palettable
+import pandas as pd
+import numpy as np
+import seaborn as sns
 
 dsi_channels = {
 'PhoenixRight870-2:EMG': 'Right EDL',
@@ -26,6 +29,24 @@ HD64_topo_list = ([
     [49, 39,  1,  4,  5,  8, 44, 50],
     [56, 40, 12, 14, 15, 17, 43, 57],
     ])
+HD64_topo = pd.DataFrame(HD64_topo_list)
+HD64_topo.index.name = 'y'
+HD64_topo.columns.name = 'x'
+HD64_labels = HD64_topo.applymap(lambda x: f"E{x:d}" if (x >= 0) else "")
+
+colors_list = [
+    sns.cubehelix_palette(
+        n_colors=8, start=st + 1.5, rot=.15, gamma=1., hue=1.0,
+        light=0.8, dark=0.1, reverse=False, as_cmap=False)
+    for st in np.linspace(0, 3, 10)
+    ]
+# base_palette = sns.hls_palette(n_colors=8, h=0.01, l=0.6, s=0.65, as_cmap=False)
+# colors_list = [
+#     sns.hls_palette(n_colors=8, h=0.1, l=l, s=1., as_cmap=False)
+#     for l in np.linspace(0.1, 0.8, 8)
+#     ]
+eids_ordered_xy = HD64_labels.unstack()
+eid_palette = {lbl: colors_list[x][y] for (x, y), lbl in eids_ordered_xy.to_dict().items()}
 
 emg_montages = {
     'lower': {

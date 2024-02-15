@@ -5,24 +5,35 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from pathlib import Path
 import json
-from isicpy.utils import makeFilterCoeffsSOS, getThresholdCrossings
-from isicpy.clinc_lookup_tables import clinc_sample_rate, emg_sample_rate, dsi_mb_clock_offsets
+from isicpy.utils import makeFilterCoeffsSOS
+from isicpy.clinc_lookup_tables import clinc_sample_rate, emg_sample_rate
 from scipy import signal
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+import os
 
 clinc_sample_interval_sec = float(clinc_sample_rate ** -1)
 
-filterOptsClinc = {
+filterOptsLFP = {
     'low': {
-        'Wn': 500.,
+        'Wn': 1000.,
         'N': 8,
         'btype': 'low',
         'ftype': 'butter'
     },
 }
-filterCoeffsClinc = makeFilterCoeffsSOS(filterOptsClinc.copy(), clinc_sample_rate)
-apply_clinc_filters = True
+filterCoeffsLFP = makeFilterCoeffsSOS(filterOptsLFP.copy(), clinc_sample_rate)
+apply_lfp_filters = True
+
+filterOptsRerefLFP = {
+    'low': {
+        'Wn': 1000.,
+        'N': 8,
+        'btype': 'low',
+        'ftype': 'butter'
+    },
+}
+filterCoeffsRerefLFP = makeFilterCoeffsSOS(filterOptsRerefLFP.copy(), clinc_sample_rate)
+apply_reref_lfp_filters = True
 
 filterOptsEmg = {
     'low': {
@@ -36,35 +47,58 @@ filterCoeffsEmg = makeFilterCoeffsSOS(filterOptsEmg.copy(), emg_sample_rate)
 
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
 file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
-downsample_factor_lfp = 5
-for file_name in file_name_list:
-    with open(folder_path / 'dsi_block_lookup.json', 'r') as f:
-        emg_block_name = json.load(f)[file_name][0]
-    clock_difference = dsi_mb_clock_offsets[folder_path.stem]
-    with open(folder_path / 'dsi_to_mb_fine_offsets.json', 'r') as f:
-        dsi_fine_offset = json.load(f)[file_name][emg_block_name]
 
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
+routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
+routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
+routing_config_info['config_end_time'] = routing_config_info['config_end_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
+file_name_list = routing_config_info['child_file_name'].to_list()
+# file_name_list = ["MB_1706196650", "MB_1706199622"]
+
+downsample_factor_lfp = 1
+
+for file_name in file_name_list:
+    tens_info_path = folder_path / (file_name + '_tens_info.parquet')
+    if os.path.exists(tens_info_path):
+        tens_info = pd.read_parquet(tens_info_path)
+    else:
+        continue
+    print(f'On {file_name}')
+    with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
+        emg_block_name = json.load(f)[file_name][0]
+    clock_difference = None
+    if os.path.exists(folder_path / 'analysis_metadata/dsi_to_mb_coarse_offsets.json'):
+        with open(folder_path / 'analysis_metadata/dsi_to_mb_coarse_offsets.json', 'r') as f:
+            coarse_offsets = json.load(f)
+        if file_name in coarse_offsets:
+            if emg_block_name in coarse_offsets[file_name]:
+                clock_difference = coarse_offsets[file_name][emg_block_name]
+    if clock_difference is None:
+        with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+            clock_difference = json.load(f)["dsi_clock_difference"]
+    with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'r') as f:
+        dsi_fine_offset = json.load(f)[file_name][emg_block_name]
     dsi_total_offset = pd.Timedelta(clock_difference + dsi_fine_offset, unit='s')
     print(f'DSI offset = {clock_difference} + {dsi_fine_offset:.3f} = {dsi_total_offset.total_seconds():.3f}')
     emg_df = pd.read_parquet(folder_path / f"{emg_block_name}_emg.parquet")
     emg_df.index = emg_df.index + dsi_total_offset
 
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
-    if apply_clinc_filters:
+    if apply_lfp_filters:
         clinc_df = pd.DataFrame(
-            signal.sosfiltfilt(filterCoeffsClinc, clinc_df, axis=0),
+            signal.sosfiltfilt(filterCoeffsLFP, clinc_df, axis=0),
             index=clinc_df.index, columns=clinc_df.columns)
 
     reref_df = pd.read_parquet(folder_path / (file_name + '_clinc_reref.parquet'))
-    if apply_clinc_filters:
+    if apply_reref_lfp_filters:
         reref_df = pd.DataFrame(
-            signal.sosfiltfilt(filterCoeffsClinc, reref_df, axis=0),
+            signal.sosfiltfilt(filterCoeffsRerefLFP, reref_df, axis=0),
             index=reref_df.index, columns=reref_df.columns)
+
     envelope_df = pd.DataFrame(
         signal.sosfiltfilt(filterCoeffsEmg, emg_df.abs().to_numpy(), axis=0),
         index=emg_df.index, columns=emg_df.columns
     )
-    tens_info = pd.read_parquet(folder_path / (file_name + '_tens_info.parquet'))
 
     mean_bounds = [-50e-3, 0]
 
@@ -97,13 +131,15 @@ for file_name in file_name_list:
         epoched_dict[key].index = t_lfp
         means_this_trial = epoched_dict[key].loc[mean_mask_lfp, :].mean()
         epoched_dict[key] = epoched_dict[key] - means_this_trial
-        epoched_dict[key] = epoched_dict[key].iloc[::downsample_factor_lfp, :]
+        if downsample_factor_lfp > 1:
+            epoched_dict[key] = epoched_dict[key].iloc[::downsample_factor_lfp, :]
 
         reref_dict[key] = reref_df.iloc[first_index_lfp + samples_left_lfp:first_index_lfp + samples_right_lfp, :].copy()
         reref_dict[key].index = t_lfp
         means_this_trial = reref_dict[key].loc[mean_mask_lfp, :].mean()
         reref_dict[key] = reref_dict[key] - means_this_trial
-        reref_dict[key] = reref_dict[key].iloc[::downsample_factor_lfp, :]
+        if downsample_factor_lfp > 1:
+            reref_dict[key] = reref_dict[key].iloc[::downsample_factor_lfp, :]
 
         first_index_emg = np.flatnonzero(emg_df.index >= timestamp)[0]
         epoched_emg_dict[key] = emg_df.iloc[first_index_emg + samples_left_emg:first_index_emg + samples_right_emg, :].copy()

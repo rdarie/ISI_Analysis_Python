@@ -51,20 +51,27 @@ file_name_list = [
 ]
 file_name_list = ["MB_1702050154_688487"]
 
-apply_stim_blank = False
+# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312201300-Phoenix")
+
+routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
+file_name_list = routing_config_info['child_file_name'].to_list()
+
+apply_stim_blank = True
 lfp_dict = {}
 for file_name in file_name_list:
     # lfp, trial averaged
-    '''lfp_path = (file_name + '_epoched_lfp.parquet')
+    lfp_path = (file_name + '_epoched_lfp.parquet')
     pdf_path = folder_path / "figures" / ('epoched_lfp.pdf')
     group_features = ['eid', 'pw']
+    eid_order = [
+        "E47", "E21", "E0", "E11",
+        'E58', 'E53', "E16", "E6",
+        "E59", "E45", "E37", "E42",
+        ]
     relplot_kwargs = dict(
         estimator='mean', errorbar='se', hue='amp', palette='crest',
-        col_order=[
-            "E47", "E21", "E0", "E11",
-            'E58', 'E53', "E16", "E6",
-            "E59", "E45", "E37", "E42",
-            ], col_wrap=4)'''
+        col_order=None, col_wrap=4)
 
     # lfp, single trial
     '''
@@ -73,7 +80,7 @@ for file_name in file_name_list:
     group_features = ['eid', 'pw', 'amp']
     relplot_kwargs = dict(estimator=None, units='timestamp')
     '''
-
+    '''
     # reref, trial averaged
     lfp_path = (file_name + '_epoched_reref_lfp.parquet')
     pdf_path = folder_path / "figures" / ('epoched_reref_lfp.pdf')
@@ -85,7 +92,7 @@ for file_name in file_name_list:
             'E58', "E16",
             "E59", "E37",
             ], col_wrap=3)
-
+    '''
     # reref, single trial
     '''
     lfp_path = (file_name + '_epoched_reref_lfp.parquet')

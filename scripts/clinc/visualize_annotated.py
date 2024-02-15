@@ -33,7 +33,7 @@ filterCoeffsClinc = makeFilterCoeffsSOS(filterOptsClinc.copy(), clinc_sample_rat
 
 apply_emg_filters = False
 apply_clinc_filters = True
-apply_custom_filters = True
+apply_custom_filters = False
 show_clinc_spectrogram = True
 show_custom_spectrogram = True
 def visualize_dataset():
@@ -62,31 +62,42 @@ def visualize_dataset():
     ]
     file_name = 'MB_1702049896_129326'
 
+    # folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
+    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312201300-Phoenix")
+    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
+    file_name = 'MB_1706199622'
+
     if os.path.exists(folder_path / 'analysis_metadata/dsi_block_lookup.json'):
         with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
             emg_block_name = json.load(f)[file_name][0]
     else:
         emg_block_name = None
 
-    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
-    file_name = 'MB_1703014372_270676'
-    emg_block_name = 'Block0001'
 
-    custom_name = 'average_zscore'
-    # custom_name = 'clinc_reref'
+    # custom_name = 'average_zscore'
+    custom_name = 'clinc_reref'
+    # custom_name = None
     filterCoeffsCustom = filterCoeffsClinc
 
-
-    stim_info_file = (file_name + '_stim_info.parquet')
-    custom_path = folder_path / (file_name + f'_{custom_name}.parquet')
+    stim_info_file = (file_name + '_tens_info.parquet')
+    if custom_name is not None:
+        custom_path = folder_path / (file_name + f'_{custom_name}.parquet')
 
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
     clinc_trigs = pd.read_parquet(folder_path / (file_name + '_clinc_trigs.parquet'))
     t_start_clinc = 0
 
     if emg_block_name is not None:
-        with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
-            clock_difference = json.load(f)["dsi_clock_difference"]
+        clock_difference = None
+        if os.path.exists(folder_path / 'analysis_metadata/dsi_to_mb_coarse_offsets.json'):
+            with open(folder_path / 'analysis_metadata/dsi_to_mb_coarse_offsets.json', 'r') as f:
+                coarse_offsets = json.load(f)
+            if file_name in coarse_offsets:
+                if emg_block_name in coarse_offsets[file_name]:
+                    clock_difference = coarse_offsets[file_name][emg_block_name]
+        if clock_difference is None:
+            with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+                clock_difference = json.load(f)["dsi_clock_difference"]
         with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'r') as f:
             dsi_fine_offset = json.load(f)[file_name][emg_block_name]
         dsi_total_offset = pd.Timedelta(clock_difference + dsi_fine_offset, unit='s')
@@ -133,7 +144,7 @@ def visualize_dataset():
     clinc_trig_view = ephyviewer.TraceViewer(source=clinc_trig_source, name='clinc_trigs')
     clinc_trig_view.params_controller.on_automatic_color(cmap_name='Set3')
 
-    if custom_path is not None:
+    if custom_name is not None:
         custom_df = pd.read_parquet(custom_path)
         custom_sample_rate = clinc_sample_rate
         t_start_custom = t_start_clinc
@@ -162,7 +173,7 @@ def visualize_dataset():
         elif 'tens' in stim_info_file:
             pretty_print_fun = lambda x: f'\nTENS {x["location"]}\namp: {int(x["amp"])}'
         else:
-            pretty_print_fun = lambda x: f'\nE{x["eid"]}\namp: {int(x["amp"])}\nfreq: {x["freq"]:.2f}'
+            pretty_print_fun = lambda x: f'\nE{x["eid"]}\namp: {int(x["amp"])}\nfreq: {x["freq"]:.2f}\nrank: {x["rank_in_train"]}'
         stim_event_dict = {
             'label': stim_info.apply(pretty_print_fun, axis='columns').to_numpy(),
             'time': np.asarray([ts.total_seconds() for ts in stim_info['timestamp']]),
@@ -174,10 +185,10 @@ def visualize_dataset():
     win.add_view(clinc_view)
     if os.path.exists(stim_info_full_path):
         win.add_view(event_view, split_with='clinc', orientation='horizontal')
-    if custom_path is not None:
+    if custom_name is not None:
         win.add_view(custom_view, split_with='clinc', orientation='vertical')
-    if show_custom_spectrogram:
-        win.add_view(custom_spectral_view, tabify_with=custom_name)
+        if show_custom_spectrogram:
+            win.add_view(custom_spectral_view, tabify_with=custom_name)
     if emg_block_name is not None:
         win.add_view(emg_signals_view, split_with='clinc', orientation='vertical')
         win.add_view(trig_view, tabify_with='emg')

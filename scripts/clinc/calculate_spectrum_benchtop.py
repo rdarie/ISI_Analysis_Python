@@ -9,16 +9,34 @@ from pathlib import Path
 from isicpy.utils import getThresholdCrossings
 from isicpy.clinc_lookup_tables import clinc_sample_rate, sid_to_intan, emg_sample_rate, dsi_trig_sample_rate
 
-mpl.rcParams['pdf.fonttype'] = 42
-mpl.rcParams['ps.fonttype'] = 42
-
 sns.set(
     context='paper', style='white',
-    palette='dark', font='sans-serif',
+    palette='deep', font='sans-serif',
     font_scale=1, color_codes=True,
-    rc={"xtick.bottom": True}
+    rc={
+        'figure.dpi': 300, 'savefig.dpi': 300,
+        'lines.linewidth': .5,
+        'lines.markersize': 2.,
+        'patch.linewidth': .5,
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42,
+        "xtick.bottom": True,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.labelpad": 1,
+        "axes.labelsize": 5,
+        "axes.titlesize": 6,
+        "axes.titlepad": 1,
+        "xtick.labelsize": 5,
+        'xtick.major.pad': 1,
+        'xtick.major.size': 2,
+        "ytick.labelsize": 5,
+        "ytick.major.pad": 1,
+        'ytick.major.size': 2,
+        "legend.fontsize": 5,
+        "legend.title_fontsize": 6,
+        }
     )
-
 file_name = 'MB_1705952197_530018'
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401221300-Benchtop")
 
@@ -138,15 +156,18 @@ pdf_path = folder_path / ('clinc_spectrum_w_examples.pdf')
 png_path = folder_path / ('clinc_spectrum_w_examples.png')
 with PdfPages(pdf_path) as pdf:
     show_indices = [2, 25, 50, 75, 98]
-    all_colors = sns.color_palette(palette='deep', n_colors=8)
-    color_list = [all_colors[i] for i in [0, 1, 2, 3, 6]]
-    fig = plt.figure(figsize=(3, 6), layout='constrained')
-    '''fig, ax = plt.subplots(
+    # all_colors = sns.color_palette(palette='deep', n_colors=8)
+    # color_list = [all_colors[i] for i in [0, 1, 2, 3, 6]]
+    color_list = sns.cubehelix_palette(start=.5, rot=-.5, n_colors=len(show_indices))
+    fig = plt.figure(figsize=(1.8, 4), layout='constrained')
+    '''
+    fig, ax = plt.subplots(
         len(show_indices) + 1, 1,
         figsize=(3, 6), height_ratios=[4] + len(show_indices) * [1],
         gridspec_kw=dict(
             hspace=.45
-        ))'''
+        ))
+        '''
     gs0 = mpl.gridspec.GridSpec(
         2, 1, figure=fig, height_ratios=[1, 1.75],
         )
@@ -156,12 +177,12 @@ with PdfPages(pdf_path) as pdf:
     ax[0].plot(rms_df['freq'], rms_df['normalized_rms'])
     ax[0].scatter(
         rms_df['freq'].iloc[show_indices], rms_df['normalized_rms'].iloc[show_indices],
-        c=color_list, zorder=2)
+        c=color_list, s=9, zorder=2)
     ax[0].set_xlabel('Input Frequency (Hz.)')
     ax[0].set_ylabel('Recorded Signal RMS (dB.)')
     ax[0].set_xscale('log')
     ax[0].grid(visible=True)
-    ax[0].yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x: >7.2g}'))
+    # ax[0].yaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x: >7.2g}'))
     # longest_period = freqs_to_sweep[show_indices[0]] ** -1
     # bounds_adjust = [
     #     (0.4, 0.4), (0.133, 0.273), (10.2e-3, 10.2e-3), (3.7e-4, 10.2e-4), (6.4e-5, 7.5e-5)]  # adjust the time bound slightly, to align x ticks
@@ -185,12 +206,13 @@ with PdfPages(pdf_path) as pdf:
         this_ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins='auto', steps=[2, 5], min_n_ticks=3))
         this_ax.xaxis.set_major_formatter(mpl.ticker.StrMethodFormatter('{x:.2g}'))
         # this_ax.grid(visible=True)
+        this_ax.text(1, 1, f"{freqs_to_sweep[t_idx]:.1f} Hz", transform=this_ax.transAxes, va='bottom', ha='right', fontsize=5)
     ax[3].set_ylabel('Recorded Signal (uV)')
     ax[-1].set_xlabel('Time (sec.)')
     sns.despine(fig)
     # fig.align_labels()
-    pdf.savefig(bbox_inches='tight', pad_inches=25e-3)
-    fig.savefig(png_path, bbox_inches='tight', pad_inches=25e-3)
+    pdf.savefig(pad_inches=25e-3)
+    fig.savefig(png_path, pad_inches=25e-3)
     plt.show()
 
 

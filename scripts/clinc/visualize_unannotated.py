@@ -3,6 +3,7 @@ from isicpy.utils import makeFilterCoeffsSOS
 from isicpy.clinc_lookup_tables import clinc_sample_rate, emg_sample_rate, dsi_trig_sample_rate, dsi_mb_clock_offsets
 from pathlib import Path
 import json
+import os
 import pandas as pd
 import ephyviewer
 from scipy import signal
@@ -19,8 +20,8 @@ filterCoeffsEmg = makeFilterCoeffsSOS(filterOptsEmg.copy(), emg_sample_rate)
 
 filterOptsClinc = {
     'low': {
-        'Wn': 1500.,
-        'N': 4,
+        'Wn': 1000.,
+        'N': 8,
         'btype': 'low',
         'ftype': 'butter'
     }
@@ -28,22 +29,23 @@ filterOptsClinc = {
 filterCoeffsClinc = makeFilterCoeffsSOS(filterOptsClinc.copy(), clinc_sample_rate)
 
 emg_is_synched = True
-apply_emg_filters = False
-apply_clinc_filters = False
+apply_emg_filters = True
+apply_clinc_filters = True
 show_clinc_spectrogram = True
 
 def visualize_dataset():
     app = ephyviewer.mkQApp()
     win = ephyviewer.MainViewer(debug=False)
 
-    '''folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311071300-Phoenix")
+    '''
+    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311071300-Phoenix")
     file_name_list = [
         "MB_1699382682_316178", "MB_1699383052_618936", "MB_1699383757_778055", "MB_1699384177_953948",
         "MB_1699382925_691816", "MB_1699383217_58381", " MB_1699383957_177840"
     ]
     dsi_block_list = []
     file_name = "MB_1699383052_618936"
-    emg_block_name = None'''
+    emg_block_name = None
 
     folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/202311091300-Phoenix")
     file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555", 'MB_1699560792_657674']
@@ -67,14 +69,15 @@ def visualize_dataset():
     dsi_block_list = ['Block0005', 'Block0006']
     file_name = 'MB_1702049896_129326'
     emg_block_name = 'Block0004'
+    '''
 
-    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312191300-Phoenix")
-    file_name = 'MB_1703014372_270676'
-    emg_block_name = 'Block0001'
+    # folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312211300-Phoenix")
+    # file_name = 'MB_1703181818'
+    # emg_block_name = 'Block0001'
 
-    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401091300-Phoenix")
-    file_name = 'MB_1704819185'
-    emg_block_name = 'Block0001'
+    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311071300-Phoenix")
+    file_name = 'MB_1699384177'
+    emg_block_name = None
 
     # file_timestamp_parts = file_name.split('_')
     # file_start_time = pd.Timestamp(float('.'.join(file_timestamp_parts[1:3])), unit='s', tz='EST')
@@ -86,10 +89,17 @@ def visualize_dataset():
     if emg_block_name is not None:
         emg_df = pd.read_parquet(folder_path / f"{emg_block_name}_emg.parquet")
         dsi_trigs = pd.read_parquet(folder_path / f"{emg_block_name}_dsi_trigs.parquet")
-
         if emg_is_synched:
-            with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
-                clock_difference = json.load(f)["dsi_clock_difference"]
+            clock_difference = None
+            if os.path.exists(folder_path / 'analysis_metadata/dsi_to_mb_coarse_offsets.json'):
+                with open(folder_path / 'analysis_metadata/dsi_to_mb_coarse_offsets.json', 'r') as f:
+                    coarse_offsets = json.load(f)
+                if file_name in coarse_offsets:
+                    if emg_block_name in coarse_offsets[file_name]:
+                        clock_difference = coarse_offsets[file_name][emg_block_name]
+            if clock_difference is None:
+                with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+                    clock_difference = json.load(f)["dsi_clock_difference"]
             with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'r') as f:
                 dsi_fine_offset = json.load(f)[file_name][emg_block_name]
             dsi_total_offset = pd.Timedelta(clock_difference + dsi_fine_offset, unit='s')
