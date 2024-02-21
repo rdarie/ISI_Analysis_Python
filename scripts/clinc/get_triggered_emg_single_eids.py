@@ -17,43 +17,31 @@ filterOpts = {
     }
 }
 filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
-scale_emg = False
+scale_emg = True
 
 emg_sample_interval_sec = float(emg_sample_rate ** -1)
-'''
-folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/20231109-Phoenix")
-file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
 
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
-file_name_list = [
-    'MB_1700670158_174163', 'MB_1700671071_947699',
-    # 'MB_1700671568_714180',
-    'MB_1700672329_741498', 'MB_1700672668_26337', 'MB_1700673350_780580'
-    ]
-file_name_list = ['MB_1700672668_26337', 'MB_1700673350_780580']
-'''
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
-# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312211300-Phoenix")
-
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 file_name_list = routing_config_info['child_file_name'].to_list()
 
 per_pulse = False
 for file_name in file_name_list:
-    print(f'On {file_name}...')
-    with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
-        emg_block_name = json.load(f)[file_name][0]
-    with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
-        clock_difference = json.load(f)["dsi_clock_difference"]
-    with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'r') as f:
-        dsi_fine_offset = json.load(f)[file_name][emg_block_name]
-
     if per_pulse:
         stim_info_path = folder_path / (file_name + '_stim_info_per_pulse.parquet')
     else:
         stim_info_path = folder_path / (file_name + '_stim_info.parquet')
     if not os.path.exists(stim_info_path):
         continue
+    with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
+        emg_block_name = json.load(f)[file_name][0]
+
+    with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
+        clock_difference = json.load(f)["dsi_clock_difference"]
+    with open(folder_path / 'analysis_metadata/dsi_to_mb_fine_offsets.json', 'r') as f:
+        dsi_fine_offset = json.load(f)[file_name][emg_block_name]
+
+    print(f'On {file_name}...')
     stim_info = pd.read_parquet(stim_info_path)
 
     dsi_total_offset = pd.Timedelta(clock_difference + dsi_fine_offset, unit='s')
@@ -94,6 +82,7 @@ for file_name in file_name_list:
     epoched_emg_df.columns.name = 'channel'
 
     file_name_suffix = '_per_pulse' if per_pulse else ''
+    print(f'Saving {file_name}_epoched_emg{file_name_suffix}.parquet')
     epoched_emg_df.to_parquet(
         folder_path / (file_name + f'_epoched_emg{file_name_suffix}.parquet'), engine='fastparquet')
 

@@ -27,10 +27,7 @@ if apply_emg_filters:
     filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), emg_sample_rate)
 
 
-# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312201300-Phoenix")
-# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312211300-Phoenix")
-# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401091300-Phoenix")
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
 
 with open(folder_path / 'analysis_metadata/general_metadata.json', 'r') as f:
     general_metadata = json.load(f)

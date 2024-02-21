@@ -46,9 +46,6 @@ filterOptsEmg = {
 filterCoeffsEmg = makeFilterCoeffsSOS(filterOptsEmg.copy(), emg_sample_rate)
 
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
-file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
-
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
 routing_config_info['config_end_time'] = routing_config_info['config_end_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))

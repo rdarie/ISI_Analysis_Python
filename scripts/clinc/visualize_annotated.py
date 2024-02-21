@@ -40,32 +40,8 @@ def visualize_dataset():
     app = ephyviewer.mkQApp()
     win = ephyviewer.MainViewer(debug=False)
 
-    # folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/20231109-Phoenix")
-    # file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555", 'MB_1699560792_657674']
-    # file_name = "MB_1699558933_985097"
-
-    # emg_block_name = "Block0002"
-    # emg_block_name = "Block0001"
-
     folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
-    file_name_list = [
-        'MB_1700670158_174163', 'MB_1700671071_947699', 'MB_1700671568_714180',
-        # 'MB_1700672329_741498',
-        'MB_1700672668_26337', 'MB_1700673350_780580'
-        ]
-    file_name = 'MB_1700672668_26337'
-
-    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
-    file_name_list = [
-        "MB_1702047397_450767", "MB_1702048897_896568", "MB_1702049441_627410",
-        "MB_1702049896_129326", "MB_1702050154_688487", "MB_1702051241_224335"
-    ]
-    file_name = 'MB_1702049896_129326'
-
-    # folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
-    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312201300-Phoenix")
-    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
-    file_name = 'MB_1706199622'
+    file_name = 'MB_1700673352'
 
     if os.path.exists(folder_path / 'analysis_metadata/dsi_block_lookup.json'):
         with open(folder_path / 'analysis_metadata/dsi_block_lookup.json', 'r') as f:
@@ -73,13 +49,12 @@ def visualize_dataset():
     else:
         emg_block_name = None
 
-
     # custom_name = 'average_zscore'
     custom_name = 'clinc_reref'
     # custom_name = None
     filterCoeffsCustom = filterCoeffsClinc
 
-    stim_info_file = (file_name + '_tens_info.parquet')
+    stim_info_file = (file_name + '_stim_info.parquet')
     if custom_name is not None:
         custom_path = folder_path / (file_name + f'_{custom_name}.parquet')
 

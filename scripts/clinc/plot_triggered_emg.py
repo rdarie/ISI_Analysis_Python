@@ -22,12 +22,11 @@ sns.set(
     font_scale=1, color_codes=True,
     )
 
-
-# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312211300-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
 
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 file_name_list = routing_config_info['child_file_name'].to_list()
+pdf_path = folder_path / "figures" / ('epoched_emg.pdf')
 
 apply_stim_blank = True
 emg_dict = {}
@@ -43,7 +42,8 @@ for file_name in file_name_list:
     '''
     # emg, trial averaged
     emg_path = (file_name + '_epoched_emg.parquet')
-    pdf_path = folder_path / "figures" / ('epoched_emg.pdf')
+    if not os.path.exists(folder_path / emg_path):
+        continue
     group_features = ['eid', 'pw']
     relplot_kwargs = dict(
         estimator='mean', errorbar='se', hue='amp', palette='crest')
@@ -63,6 +63,8 @@ if not os.path.exists(folder_path / "figures"):
 with PdfPages(pdf_path) as pdf:
     for name, group in plot_df.groupby(group_features):
         these_params = {key: value for key, value in zip(group_features, name)}
+        this_page_title = ' '.join([f"{key}: {value}" for key, value in these_params.items()])
+        print(f"On {this_page_title}")
         g = sns.relplot(
             data=group,
             row='freq', col='channel',
@@ -78,7 +80,7 @@ with PdfPages(pdf_path) as pdf:
         g.set_xlabels('Time (msec.)')
         g.set_ylabels('EMG (mV)')
         g._legend.set_title('Stim. amplitude (uA)')
-        g.figure.suptitle(' '.join([f"{key}: {value}" for key, value in these_params.items()]))
+        g.figure.suptitle(this_page_title)
         g.figure.align_labels()
         pdf.savefig()
         plt.close()

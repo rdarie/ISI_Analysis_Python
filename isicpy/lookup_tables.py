@@ -32,12 +32,15 @@ HD64_topo_list = ([
 HD64_topo = pd.DataFrame(HD64_topo_list)
 HD64_topo.index.name = 'y'
 HD64_topo.columns.name = 'x'
+HD64_topo_remix = pd.DataFrame(
+    np.flipud(np.arange(1, 65).reshape(8, 8).T),
+    index=HD64_topo.index, columns=HD64_topo.columns)
 HD64_labels = HD64_topo.applymap(lambda x: f"E{x:d}" if (x >= 0) else "")
-
+HD64_labels_remix = HD64_topo_remix.applymap(lambda x: f"E{x:d}" if (x >= 0) else "")
 colors_list = [
     sns.cubehelix_palette(
         n_colors=8, start=st + 1.5, rot=.15, gamma=1., hue=1.0,
-        light=0.8, dark=0.1, reverse=False, as_cmap=False)
+        light=0.8, dark=0.2, reverse=False, as_cmap=False)
     for st in np.linspace(0, 3, 10)
     ]
 # base_palette = sns.hls_palette(n_colors=8, h=0.01, l=0.6, s=0.65, as_cmap=False)
@@ -46,6 +49,8 @@ colors_list = [
 #     for l in np.linspace(0.1, 0.8, 8)
 #     ]
 eids_ordered_xy = HD64_labels.unstack()
+eids_ordered_xy_remix = HD64_labels_remix.unstack()
+eid_remix_lookup = {eids_ordered_xy[idx]: eids_ordered_xy_remix[idx] for idx in eids_ordered_xy.index}
 eid_palette = {lbl: colors_list[x][y] for (x, y), lbl in eids_ordered_xy.to_dict().items()}
 
 emg_montages = {

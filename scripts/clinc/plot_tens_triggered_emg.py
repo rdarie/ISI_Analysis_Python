@@ -6,7 +6,7 @@ from pathlib import Path
 import json
 from isicpy.utils import makeFilterCoeffsSOS, getThresholdCrossings
 from isicpy.lookup_tables import dsi_channels
-from isicpy.clinc_lookup_tables import clinc_sample_rate, emg_sample_rate, dsi_trig_sample_rate
+from isicpy.clinc_lookup_tables import clinc_paper_matplotlib_rc, clinc_paper_emg_palette
 from scipy import signal
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -15,14 +15,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import pyplot as plt
 import matplotlib.ticker as ticker
 
-mpl.rcParams['pdf.fonttype'] = 42
-mpl.rcParams['ps.fonttype'] = 42
-
 sns.set(
-    context='talk', style='whitegrid',
-    palette='dark', font='sans-serif',
+    context='paper', style='white',
+    palette='deep', font='sans-serif',
     font_scale=1, color_codes=True,
-    rc={"xtick.bottom": True}
+    rc=clinc_paper_matplotlib_rc
     )
 
 '''
@@ -37,9 +34,6 @@ filterOpts = {
 '''
 
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
-file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
-
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(
     lambda x: pd.Timestamp(x, tz='GMT'))
@@ -96,25 +90,27 @@ with PdfPages(pdf_path) as pdf:
         ax.axvline(0, color='r')
         ax.xaxis.set_major_locator(ticker.MultipleLocator(50))
         ax.xaxis.set_minor_locator(ticker.MultipleLocator(10))
-    g.set_titles(row_template="TENS on\n{row_name} ankle")
+    g.set_titles(row_template="TENS on\n{row_name} fetlock")
     g.set_xlabels('Time (msec.)')
     g.set_ylabels('EMG (uV)')
-    g._legend.set_title('TENS amplitude (V)')
+    g.legend.set_title('TENS amplitude (V)')
     g.figure.align_labels()
     pdf.savefig()
     plt.close()
 
 pdf_path = folder_path / "figures" / ('tens_epoched_emg_per_amp.pdf')
 group_features = ['pw', 'amp']
-colors_to_use = sns.color_palette('pastel', n_colors=3) + sns.color_palette('dark', n_colors=3)
 
+plot_t_min, plot_t_max = -10e-3, 80e-3
 relplot_kwargs = dict(
     estimator='mean', errorbar='se', hue='channel',
-    palette={key: colors_to_use[idx] for idx, key in enumerate(emg_df.columns)},
-    row='location', #  hue_order=emg_df.columns.to_list(),
+    palette=clinc_paper_emg_palette,
+    col='location', hue_order=[key for key in clinc_paper_emg_palette.keys()],
     x='t_msec', y='value',
-    kind='line', height=4, aspect=1.8,
-    facet_kws=dict(sharey=False, margin_titles=True),
+    kind='line',  # height=4, aspect=1.8,
+    facet_kws=dict(
+        sharey=False, margin_titles=True, legend_out=False,
+        xlim=(plot_t_min * 1e3, plot_t_max * 1e3),),
 )
 
 dy = 10
@@ -125,8 +121,10 @@ for chan in emg_df.columns:
     y_offset -= dy
 
 with PdfPages(pdf_path) as pdf:
-    t_mask = (plot_df['t'] >= -25e-3) & (plot_df['t'] <= 100e-3)
+    t_mask = (plot_df['t'] >= plot_t_min) & (plot_df['t'] <= plot_t_max)
     for amp, group in plot_df.loc[t_mask, :].groupby('amp'):
+        if amp != 25:
+            continue
         g = sns.relplot(
             data=group,
             **relplot_kwargs
@@ -135,11 +133,27 @@ with PdfPages(pdf_path) as pdf:
             ax.axvline(0, color='r')
             ax.xaxis.set_major_locator(ticker.MultipleLocator(50))
             ax.xaxis.set_minor_locator(ticker.MultipleLocator(10))
-        g.set_titles(row_template="TENS on\n{row_name} ankle")
+        # g.set_titles(col_template="TENS on\n{col_name} fetlock")
+        g.set_titles(col_template="")
         g.set_xlabels('Time (msec.)')
         g.set_ylabels('EMG (uV)')
-        g._legend.set_title('Channel')
-        g.figure.suptitle(f'TENS amplitude: {amp} V')
-        # g.figure.align_labels()
+        g.legend.set_title('EMG\nChannel')
+        g.figure.suptitle(f'TENS amplitude: {amp} V', fontsize=1)
+        desired_figsize = (4.8, 1.8)
+        g.figure.set_size_inches(desired_figsize)
+        sns.move_legend(
+            g, 'center right', bbox_to_anchor=(1, 0.5),
+            ncols=1)
+        for legend_handle in g.legend.legendHandles:
+            if isinstance(legend_handle, mpl.lines.Line2D):
+                legend_handle.set_lw(4 * legend_handle.get_lw())
+
+        g.figure.draw_without_rendering()
+        legend_approx_width = g.legend.legendPatch.get_width() / g.figure.get_dpi()  # inches
+        # new_right_margin = 1 - legend_approx_width / desired_figsize[0]
+        new_right_margin = .825  # hardcode to align to lfp figure
+        g.figure.subplots_adjust(right=new_right_margin)
+        g.tight_layout(pad=25e-2, rect=[0, 0, new_right_margin, 1])
+        g.figure.align_labels()
         pdf.savefig()
         plt.close()

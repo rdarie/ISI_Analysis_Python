@@ -75,9 +75,9 @@ def visualize_dataset():
     # file_name = 'MB_1703181818'
     # emg_block_name = 'Block0001'
 
-    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311071300-Phoenix")
-    file_name = 'MB_1699384177'
-    emg_block_name = None
+    folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+    file_name = 'MB_1702049443'
+    emg_block_name = 'Block0003'
 
     # file_timestamp_parts = file_name.split('_')
     # file_start_time = pd.Timestamp(float('.'.join(file_timestamp_parts[1:3])), unit='s', tz='EST')

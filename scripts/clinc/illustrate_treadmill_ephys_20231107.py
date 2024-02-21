@@ -5,22 +5,21 @@ import pandas as pd
 from pathlib import Path
 import json
 from isicpy.utils import makeFilterCoeffsSOS, getThresholdCrossings, mapToDF
-from isicpy.lookup_tables import HD64_topo_list
+from isicpy.lookup_tables import eid_remix_lookup, eids_ordered_xy, eid_palette
+from isicpy.clinc_lookup_tables import clinc_paper_matplotlib_rc
 from scipy import signal
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import seaborn as sns
 
 from matplotlib.backends.backend_pdf import PdfPages
-mpl.rcParams['pdf.fonttype'] = 42
-mpl.rcParams['ps.fonttype'] = 42
 
 sns.set(
-    context='notebook', style='darkgrid',
-    palette='dark', font='sans-serif',
+    context='paper', style='white',
+    palette='deep', font='sans-serif',
     font_scale=1, color_codes=True,
+    rc=clinc_paper_matplotlib_rc
     )
-
 from matplotlib import pyplot as plt
 
 clinc_sample_interval = pd.Timedelta(27077, unit='ns').to_timedelta64()
@@ -29,8 +28,8 @@ clinc_sample_interval_sec = float(clinc_sample_interval) * 1e-9
 clinc_sample_rate = 36931.8
 filterOpts = {
     'low': {
-        'Wn': 100.,
-        'N': 2,
+        'Wn': 500.,
+        'N': 8,
         'btype': 'low',
         'ftype': 'butter'
     },
@@ -40,34 +39,29 @@ filterCoeffs = makeFilterCoeffsSOS(filterOpts.copy(), clinc_sample_rate)
 downsample_factor = 10
 downsampled_interval = clinc_sample_interval_sec * downsample_factor
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311071300-Phoenix")
-file_name_list = [
-    "MB_1699382682_316178", "MB_1699383052_618936", "MB_1699383757_778055", "MB_1699384177_953948",
-    "MB_1699382925_691816", "MB_1699383217_58381", "MB_1699383957_177840"
-    ]
 dsi_block_list = []
-file_name = "MB_1699384177_953948"
+file_name = "MB_1699384177"
 
 lfp_path = (file_name + '_clinc.parquet')
 pdf_path = folder_path / "figures" / ('treadmill_illustration.pdf')
+png_path = folder_path / 'figures' / ('treadmill_illustration.png')
+
 lfp_df = pd.read_parquet(folder_path / lfp_path)
+lfp_df.index -= lfp_df.index[0]
 lfp_df.index = lfp_df.index.total_seconds()
 lfp_df = pd.DataFrame(
     signal.sosfiltfilt(filterCoeffs, lfp_df, axis=0),
     index=lfp_df.index, columns=lfp_df.columns).iloc[::downsample_factor, :]
-implant_map = mapToDF("/users/rdarie/isi_analysis/ISI_Analysis_Python/ripple_map_files/hd64_square.map")
-HD64_topo = pd.DataFrame(HD64_topo_list)
 
-eids_present = HD64_topo.applymap(lambda x: f"E{x:0>2d}" in lfp_df.columns)
+this_eid_order = [cn for cn in eids_ordered_xy if cn in lfp_df.columns]
+this_eid_palette = {lbl: eid_col for lbl, eid_col in eid_palette.items() if lbl in lfp_df.columns}
 
-# fig, ax = plt.subplots()
-# sns.heatmap(eids_present, ax=ax)
-
-window_len = 10  # sec
+window_len = 5  # sec
 window_len_samples = int(window_len / downsampled_interval)
 
 align_timestamps = {
     1: 'off',
-    33: 'on'
+    34: 'on'
 }
 
 epoched_dict = {}
@@ -88,21 +82,53 @@ average_std = epoched_df.std().mean()
 dy = 0
 for cn in epoched_df.columns:
     epoched_df[cn] = epoched_df[cn] + dy
-    dy += 10 * average_std
+    dy += 8 * average_std
 
 plot_df = epoched_df.stack().reset_index().rename(columns={0: 'value'})
-
+plot_df['value'] = plot_df['value'] / 1e3
 if not os.path.exists(folder_path / "figures"):
     os.makedirs(folder_path / "figures")
+
+## substitute renumbered EIDs
+this_eid_palette_remix = {eid_remix_lookup[old_name]: c for old_name, c in this_eid_palette.items()}
+this_eid_order_remix = [eid_remix_lookup[old_name] for old_name in this_eid_order]
+plot_df['eid'] = plot_df.apply(lambda x: eid_remix_lookup[x['eid']], axis='columns')
+#####
+
 with PdfPages(pdf_path) as pdf:
     g = sns.relplot(
         data=plot_df,
-        col='treadmill',
+        row='treadmill',
         x='t', y='value',
-        hue='eid',
-        kind='line',
-        # facet_kws=dict(sharey=False),
+        hue='eid', hue_order=this_eid_order_remix, palette=this_eid_palette_remix,
+        kind='line', estimator=None,
+        facet_kws=dict(legend_out=False, xlim=(0, window_len))
         )
-    # plt.show()
+    desired_figsize = (1.95, 3.6)
+    g.set_ylabels('Spinal Potential (mV)')
+    g.set_xlabels('Time (sec.)')
+    g.legend.set_title('Spinal\nChannel')
+    g.set_titles(row_template="Treadmill {row_name}")
+    g.figure.set_size_inches(desired_figsize)
+    sns.move_legend(
+        g, 'center right', bbox_to_anchor=(1, 0.5),
+        ncols=1)
+    for legend_handle in g.legend.legendHandles:
+        if isinstance(legend_handle, mpl.lines.Line2D):
+            legend_handle.set_lw(4 * legend_handle.get_lw())
+    '''
+    g.legend._set_loc(7)
+    g.legend.set_bbox_to_anchor(
+        (1., 0.5), transform=g.figure.transFigure)
+    '''
+    g.figure.draw_without_rendering()
+    legend_approx_width = g.legend.legendPatch.get_width() / g.figure.get_dpi()  # inches
+    new_right_margin = 1 - legend_approx_width / desired_figsize[0]
+    g.figure.subplots_adjust(right=new_right_margin)
+    g.tight_layout(
+        pad=25e-2, rect=[0, 0, new_right_margin, 1])
+    g.figure.align_labels()
     pdf.savefig()
-    plt.close()
+    g.figure.savefig(png_path)
+    plt.show()
+    # plt.close()

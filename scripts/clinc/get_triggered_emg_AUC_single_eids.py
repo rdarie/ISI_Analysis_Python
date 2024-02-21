@@ -22,8 +22,7 @@ scale_emg = False
 emg_sample_interval_sec = float(emg_sample_rate ** -1)
 
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
-# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312211300-Phoenix")
-
+# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 file_name_list = routing_config_info['child_file_name'].to_list()
 

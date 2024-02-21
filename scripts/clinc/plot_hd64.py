@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import json
-from isicpy.lookup_tables import HD64_topo, HD64_labels, eid_palette, eids_ordered_xy
+from isicpy.lookup_tables import HD64_topo, HD64_labels, HD64_labels_remix, eid_palette, eids_ordered_xy
+from isicpy.clinc_lookup_tables import clinc_paper_matplotlib_rc
 import matplotlib.patches as mpatches
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
@@ -14,13 +15,13 @@ mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
 
 sns.set(
-    context='talk', style='whitegrid',
-    palette='dark', font='sans-serif',
+    context='paper', style='white',
+    palette='deep', font='sans-serif',
     font_scale=1, color_codes=True,
-    rc={"xtick.bottom": True}
+    rc=clinc_paper_matplotlib_rc
     )
 
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
 
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(
@@ -46,6 +47,9 @@ xv, yv = np.meshgrid(x, y, indexing='xy')
 xv = pd.DataFrame(xv, index=HD64_topo.index, columns=HD64_topo.columns)
 yv = pd.DataFrame(yv, index=HD64_topo.index, columns=HD64_topo.columns)
 
+master_linewidth = .25
+show_paddle_outline = False
+
 if not os.path.exists(folder_path / "figures"):
     os.makedirs(folder_path / "figures")
 
@@ -58,16 +62,17 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
     else:
         active_eid_labels = eids_ordered_xy.to_list()
     with PdfPages(pdf_path) as pdf:
-        fig, ax = plt.subplots(figsize=(2, 7))
-        patch_artist = mpatches.Arc(
-            (w_elec / 2, l_elec), w_elec, w_elec,
-            theta1=0, theta2=180,
-            ec='k', fc='none', lw=2
-        )
-        ax.add_artist(patch_artist)
-        ax.plot([0, 0], [-l_bottom, l_elec], c='k')
-        ax.plot([w_elec, w_elec], [-l_bottom, l_elec], c='k')
-        ax.plot([0, w_elec], [-l_bottom, -l_bottom], c='k')
+        fig, ax = plt.subplots(figsize=(.8, 3.6))
+        if show_paddle_outline:
+            patch_artist = mpatches.Arc(
+                (w_elec / 2, l_elec), w_elec, w_elec,
+                theta1=0, theta2=180,
+                ec='k', fc='none', lw=master_linewidth
+            )
+            ax.add_artist(patch_artist)
+            ax.plot([0, 0], [-l_bottom, l_elec], lw=master_linewidth, c='k')
+            ax.plot([w_elec, w_elec], [-l_bottom, l_elec], lw=master_linewidth, c='k')
+            ax.plot([0, w_elec], [-l_bottom, -l_bottom], lw=master_linewidth, c='k')
 
         for row in HD64_topo.index:
             for col in HD64_topo.columns:
@@ -77,18 +82,20 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
                     if eid_label in active_eid_labels:
                         patch_artist = mpatches.FancyBboxPatch(
                             (xv.loc[row, col], yv.loc[row, col]), wc, lc,
-                            ec="k", fc=eid_palette[eid_label],  # 'b',
+                            lw=master_linewidth, ec="k", fc=eid_palette[eid_label],  # 'b',
                             boxstyle=mpatches.BoxStyle("Round", pad=0, rounding_size=.5)
                             )
                         ax.add_artist(patch_artist)
+                        substitute_label = HD64_labels_remix.loc[row, col]
                         ax.text(
                             xv.loc[row, col] + wc / 2, yv.loc[row, col] + lc / 2,
-                            eid_label, size=5, color="w",
+                            substitute_label[1:], size=3.5, color="w", #  fontweight='bold',
                             # transform=ax.transAxes, size="large", color="k",
                             horizontalalignment="center", verticalalignment="center")
                     else:
                         patch_artist = mpatches.FancyBboxPatch(
-                            (xv.loc[row, col], yv.loc[row, col]), wc, lc, ec='k', fc="none",
+                            (xv.loc[row, col], yv.loc[row, col]), wc, lc,
+                            lw=master_linewidth, ec='k', fc="none",
                             boxstyle=mpatches.BoxStyle("Round", pad=0, rounding_size=.5)
                             )
                         ax.add_artist(patch_artist)
@@ -96,6 +103,7 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
         ax.set_xlim(-0.5, w_elec + 0.5)
         ax.set_ylim(-0.5 - l_bottom, l_elec + w_elec + 0.5)
         ax.set_axis_off()
-        ax.set_title(cfg_name)
+        ax.set_title(cfg_name, fontsize=1)
+        fig.tight_layout(pad=0)
         pdf.savefig()
         plt.show()

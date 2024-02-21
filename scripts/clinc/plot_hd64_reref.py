@@ -4,11 +4,12 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import json
-from isicpy.lookup_tables import HD64_topo_list
+from isicpy.lookup_tables import HD64_topo, HD64_labels, eid_palette, eids_ordered_xy
 import matplotlib.patches as mpatches
 import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib import pyplot as plt
+import os
 
 mpl.rcParams['pdf.fonttype'] = 42
 mpl.rcParams['ps.fonttype'] = 42
@@ -20,31 +21,17 @@ sns.set(
     rc={"xtick.bottom": True}
     )
 
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
-file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
-file_name = "MB_1702049441_627410"
-with open(folder_path / 'reref_lookup.json', 'r') as f:
-    reref_lookup = json.load(f)[file_name]
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
+routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
+routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(
+    lambda x: pd.Timestamp(x, tz='GMT'))
+routing_config_info['config_end_time'] = routing_config_info['config_end_time'].apply(
+    lambda x: pd.Timestamp(x, tz='GMT'))
 
-full_palette = sns.color_palette('Paired')
-color_lookup = {}
-text_lookup = {}
-col_order = [
-    "E47", "E0", 'E58', "E16", "E59", "E37"]
-for c_idx, key in enumerate(col_order):
-    value = reref_lookup[key]
-    color_lookup[key] = full_palette[c_idx]
-    color_lookup[value] = full_palette[c_idx]
-    text_lookup[key] = '+'
-    text_lookup[value] = '-'
-
-HD64_topo = pd.DataFrame(HD64_topo_list)
-HD64_topo.index.name = 'y'
-HD64_topo.columns.name = 'x'
-HD64_labels = HD64_topo.applymap(lambda x: f"E{x:d}" if (x >= 0) else "")
+with open(folder_path / 'analysis_metadata/reref_lookup.json', 'r') as f:
+    reref_lookup_dict = json.load(f)
 
 # all units in mm
-
 py = 5.  # y pitch
 px = 1.5  # x pitch
 wc = 1.  # contact width
@@ -61,46 +48,81 @@ xv, yv = np.meshgrid(x, y, indexing='xy')
 xv = pd.DataFrame(xv, index=HD64_topo.index, columns=HD64_topo.columns)
 yv = pd.DataFrame(yv, index=HD64_topo.index, columns=HD64_topo.columns)
 
-pdf_path = folder_path / "figures" / ('reref_hd64_map.pdf')
-with PdfPages(pdf_path) as pdf:
-    fig, ax = plt.subplots(figsize=(2, 7))
-    patch_artist = mpatches.Arc(
-        (w_elec / 2, l_elec), w_elec, w_elec,
-        theta1=0, theta2=180,
-        ec='k', fc='none', lw=2
-    )
-    ax.add_artist(patch_artist)
-    ax.plot([0, 0], [-l_bottom, l_elec], c='k')
-    ax.plot([w_elec, w_elec], [-l_bottom, l_elec], c='k')
-    ax.plot([0, w_elec], [-l_bottom, -l_bottom], c='k')
+master_linewidth = 1
 
-    for row in HD64_topo.index:
-        for col in HD64_topo.columns:
-            eid = HD64_topo.loc[row, col]
-            eid_label = HD64_labels.loc[row, col]
-            if eid > -1:
-                if eid_label in color_lookup:
-                    patch_artist = mpatches.FancyBboxPatch(
-                        (xv.loc[row, col], yv.loc[row, col]), wc, lc,
-                        ec="k", fc=color_lookup[eid_label],
-                        boxstyle=mpatches.BoxStyle("Round", pad=0, rounding_size=.5)
-                        )
-                    ax.add_artist(patch_artist)
-                    ax.text(
-                        xv.loc[row, col] + wc / 2, yv.loc[row, col] + lc / 2,
-                        text_lookup[eid_label],
-                        # transform=ax.transAxes, size="large", color="k",
-                        horizontalalignment="center", verticalalignment="center")
-                else:
-                    patch_artist = mpatches.FancyBboxPatch(
-                        (xv.loc[row, col], yv.loc[row, col]), wc, lc, ec='k', fc="none",
-                        boxstyle=mpatches.BoxStyle("Round", pad=0, rounding_size=.5)
-                        )
-                    ax.add_artist(patch_artist)
+if not os.path.exists(folder_path / "figures"):
+    os.makedirs(folder_path / "figures")
 
-    ax.set_xlim(-0.5, w_elec + 0.5)
-    ax.set_ylim(-0.5 - l_bottom, l_elec + w_elec + 0.5)
+for yml_path, this_routing in routing_config_info.groupby('yml_path'):
+    if yml_path == 'nan':
+        continue
 
-    ax.set_axis_off()
-    pdf.savefig()
-    plt.show()
+    reref_lookup = None
+    for child_name in this_routing['child_file_name']:
+        if child_name in reref_lookup_dict:
+            reref_lookup = reref_lookup_dict[child_name]
+            break
+    if reref_lookup is None:
+        continue
+
+    cfg_name = Path(yml_path).stem
+    print(f'{cfg_name} used by {this_routing["child_file_name"].to_list()}')
+    pdf_path = folder_path / "figures" / (f'{cfg_name}_reref_hd64_map.pdf')
+    active_eid_labels = this_routing['clinc_col_names'].iloc[0]
+
+
+    color_lookup = {}
+    text_lookup = {}
+
+
+    for eid_plus, eid_minus in reref_lookup.items():
+        color_lookup[eid_plus] = eid_palette[eid_plus]
+        color_lookup[eid_minus] = eid_palette[eid_plus]
+        text_lookup[eid_plus] = '+'
+        text_lookup[eid_minus] = '-'
+
+    with PdfPages(pdf_path) as pdf:
+        fig, ax = plt.subplots(figsize=(2, 7))
+        patch_artist = mpatches.Arc(
+            (w_elec / 2, l_elec), w_elec, w_elec,
+            theta1=0, theta2=180,
+            ec='k', fc='none', lw=master_linewidth
+        )
+        ax.add_artist(patch_artist)
+        ax.plot([0, 0], [-l_bottom, l_elec], lw=master_linewidth, c='k')
+        ax.plot([w_elec, w_elec], [-l_bottom, l_elec], lw=master_linewidth, c='k')
+        ax.plot([0, w_elec], [-l_bottom, -l_bottom], lw=master_linewidth, c='k')
+
+        for row in HD64_topo.index:
+            for col in HD64_topo.columns:
+                eid = HD64_topo.loc[row, col]
+                eid_label = HD64_labels.loc[row, col]
+                if eid > -1:
+                    if eid_label in color_lookup:
+                        patch_artist = mpatches.FancyBboxPatch(
+                            (xv.loc[row, col], yv.loc[row, col]), wc, lc,
+                            lw=master_linewidth, ec="k", fc=color_lookup[eid_label],
+                            boxstyle=mpatches.BoxStyle(
+                                "Round", pad=0, rounding_size=.5)
+                            )
+                        ax.add_artist(patch_artist)
+                        ax.text(
+                            xv.loc[row, col] + wc / 2, yv.loc[row, col] + lc / 2,
+                            text_lookup[eid_label], size=8, fontweight='bold',
+                            # transform=ax.transAxes, size="large", color="k",
+                            horizontalalignment="center", verticalalignment="center")
+                    else:
+                        patch_artist = mpatches.FancyBboxPatch(
+                            (xv.loc[row, col], yv.loc[row, col]), wc, lc,
+                            lw=master_linewidth, ec='k', fc="none",
+                            boxstyle=mpatches.BoxStyle(
+                                "Round", pad=0, rounding_size=.5)
+                            )
+                        ax.add_artist(patch_artist)
+
+        ax.set_xlim(-0.5, w_elec + 0.5)
+        ax.set_ylim(-0.5 - l_bottom, l_elec + w_elec + 0.5)
+
+        ax.set_axis_off()
+        pdf.savefig()
+        plt.show()

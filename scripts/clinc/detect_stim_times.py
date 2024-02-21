@@ -21,26 +21,7 @@ filterOpts = {
 }
 per_pulse = False
 
-'''
-folder_path = Path(r"/users/rdarie/data/rdarie/Neural Recordings/raw/202311091300-Phoenix")
-file_name_list = ["MB_1699558933_985097", "MB_1699560317_650555"]
-
 folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202311221100-Phoenix")
-file_name_list = [
-    'MB_1700670158_174163', 'MB_1700671071_947699', 'MB_1700671568_714180',
-    'MB_1700672668_26337', 'MB_1700673350_780580'
-    ]
-
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
-file_name_list = [
-    "MB_1702047397_450767", "MB_1702048897_896568", "MB_1702049441_627410",
-    "MB_1702049896_129326", "MB_1702050154_688487", "MB_1702051241_224335"
-]
-file_name_list = ["MB_1702049441_627410", "MB_1702049896_129326"]
-'''
-
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401111300-Phoenix")
-# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312211300-Phoenix")
 
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
