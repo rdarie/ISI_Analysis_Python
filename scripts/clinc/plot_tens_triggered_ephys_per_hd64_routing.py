@@ -34,7 +34,8 @@ filterOpts = {
 }
 '''
 
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+# folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(
     lambda x: pd.Timestamp(x, tz='GMT'))
@@ -44,6 +45,8 @@ routing_config_info['config_end_time'] = routing_config_info['config_end_time'].
 
 for yml_path, this_routing in routing_config_info.groupby('yml_path'):
     cfg_name = Path(yml_path).stem
+    if cfg_name != 'config_c':
+        continue
     print(f'On config {cfg_name}')
     apply_stim_blank = False
     lfp_dict = {}
@@ -73,20 +76,24 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
 
     plot_df = lfp_df.stack().reset_index().rename(columns={0: 'value'})
 
-    recruitment_keys = ['pw', 'amp', 'location']
-    auc_df = lfp_df.abs().stack().groupby(recruitment_keys + ['block', 'timestamp']).mean()
 
-    #  g = sns.displot(data=auc_df.reset_index().rename(columns={0: 'auc'}), x='auc')
-    #  g.axes[0][0].axvline(auc_df.mean() + 3 * auc_df.std(), color='r')
-    #  g.figure.suptitle(f"{cfg_name}")
-    #  plt.show()
 
     plot_df.loc[:, 'is_outlier'] = False
-    outlier_thresh = auc_df.mean() + 3 * auc_df.std()
-    print('\tIdentifying outliers...')
-    for name, group in tqdm(plot_df.groupby(recruitment_keys + ['block', 'timestamp'], sort=False)):
-        plot_df.loc[group.index, 'is_outlier'] = auc_df.loc[name] > outlier_thresh
-    print('\t\tDone.')
+    remove_outliers = False
+    if remove_outliers:
+        recruitment_keys = ['pw', 'amp', 'location']
+        auc_df = lfp_df.abs().stack().groupby(recruitment_keys + ['block', 'timestamp']).mean()
+        '''g = sns.displot(data=auc_df.reset_index().rename(columns={0: 'auc'}), x='auc')
+        g.axes[0][0].axvline(auc_df.mean() + 3 * auc_df.std(), color='r')
+        g.figure.suptitle(f"{cfg_name}")
+        plt.show()'''
+        outlier_thresh = auc_df.mean() + 3 * auc_df.std()
+        print('\tIdentifying outliers...')
+        for name, group in tqdm(plot_df.groupby(recruitment_keys + ['block', 'timestamp'], sort=False)):
+            plot_df.loc[group.index, 'is_outlier'] = auc_df.loc[name] > outlier_thresh
+        plot_df = plot_df.loc[~plot_df['is_outlier'], :]
+        print(f'\t\tDone. Removed {plot_df["is_outlier"].sum()}/{plot_df.shape[0]} samples ({plot_df["is_outlier"].sum()/plot_df.shape[0]:.2f} %)')
+
     pw_lims = [0, 500e-6]
     plot_df.loc[:, 't_msec'] = plot_df['t'] * 1e3
     if apply_stim_blank:
@@ -95,7 +102,6 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
 
     t_min, t_max = plot_df['t_msec'].min(), plot_df['t_msec'].max()
     plot_t_min, plot_t_max = -10e-3, 80e-3
-    plot_df = plot_df.loc[~plot_df['is_outlier'], :]
 
     if not os.path.exists(folder_path / "figures"):
         os.makedirs(folder_path / "figures")
@@ -138,7 +144,7 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
             x='t_msec', y='value',
             kind='line',  # height=4, aspect=1.8,
             facet_kws=dict(
-                sharey=False, margin_titles=True,
+                sharey=True, margin_titles=True,
                 xlim=(plot_t_min * 1e3, plot_t_max * 1e3),
                 legend_out=False),
         )
@@ -156,6 +162,7 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
         relplot_kwargs["hue_order"] = [eid_remix_lookup[old_name] for old_name in relplot_kwargs["hue_order"]]
         plot_df['channel'] = plot_df.apply(lambda x: eid_remix_lookup[x['channel']], axis='columns')
         #####
+        plot_df.sort_values(by='location', inplace=True)
         with PdfPages(pdf_path) as pdf:
             t_mask = (plot_df['t'] >= plot_t_min) & (plot_df['t'] <= plot_t_max)
             for amp, group in plot_df.loc[t_mask, :].groupby('amp', sort=False):
@@ -179,7 +186,7 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
                     g.set_ylabels('Spinal Potential (uV)')
                 g.legend.set_title('Spinal\nChannel')
                 g.figure.suptitle(f'TENS amplitude: {amp} V', fontsize=1)
-                desired_figsize = (4.8, 1.8)
+                desired_figsize = (5.2, 1.5)
                 g.figure.set_size_inches(desired_figsize)
                 sns.move_legend(
                     g, 'center right', bbox_to_anchor=(1, 0.5),
@@ -187,14 +194,12 @@ for yml_path, this_routing in routing_config_info.groupby('yml_path'):
                 for legend_handle in g.legend.legendHandles:
                     if isinstance(legend_handle, mpl.lines.Line2D):
                         legend_handle.set_lw(4 * legend_handle.get_lw())
-
+                g.figure.align_labels()
                 g.figure.draw_without_rendering()
                 legend_approx_width = g.legend.legendPatch.get_width() / g.figure.get_dpi()  # inches
                 # new_right_margin = 1 - legend_approx_width / desired_figsize[0]
-                new_right_margin = .825  # hardcode to align to emg figure
-                g.figure.subplots_adjust(right=new_right_margin)
+                new_right_margin = .85  # hardcode to align to emg figure
                 g.tight_layout(pad=25e-2, rect=[0, 0, new_right_margin, 1])
-                g.figure.align_labels()
                 pdf.savefig()
                 plt.close()
-            print(f"saved {pdf_path}")
+            print(f"\tsaved {pdf_path}")

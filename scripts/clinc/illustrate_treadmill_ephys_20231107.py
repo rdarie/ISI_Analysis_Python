@@ -104,7 +104,7 @@ with PdfPages(pdf_path) as pdf:
         kind='line', estimator=None,
         facet_kws=dict(legend_out=False, xlim=(0, window_len))
         )
-    desired_figsize = (1.95, 3.6)
+    desired_figsize = (1.9, 3)
     g.set_ylabels('Spinal Potential (mV)')
     g.set_xlabels('Time (sec.)')
     g.legend.set_title('Spinal\nChannel')

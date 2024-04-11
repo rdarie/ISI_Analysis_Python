@@ -84,8 +84,8 @@ with PdfPages(pdf_path) as pdf:
         data=plot_df.loc[t_mask, :],
         col='channel', row='location',
         x='t_msec', y='value',
-        kind='line', height=4, aspect=1.8,
-        facet_kws=dict(sharey=False, margin_titles=True),
+        kind='line', # height=4, aspect=1.8,
+        facet_kws=dict(sharey=True, margin_titles=True),
         **relplot_kwargs)
     for ax in g.axes.flatten():
         ax.axvline(0, color='r')
@@ -106,8 +106,7 @@ plot_t_min, plot_t_max = -10e-3, 80e-3
 relplot_kwargs = dict(
     estimator='mean', errorbar='se', hue='channel',
     palette=clinc_paper_emg_palette,
-    col='location', row='emg_side',
-    hue_order=[key for key in clinc_paper_emg_palette.keys()],
+    col='location', hue_order=[key for key in clinc_paper_emg_palette.keys()],
     x='t_msec', y='value',
     kind='line',  # height=4, aspect=1.8,
     facet_kws=dict(
@@ -122,7 +121,7 @@ for chan in emg_df.columns:
     plot_df.loc[this_mask, 'value'] += y_offset
     y_offset -= dy
 
-plot_df['emg_side'] = plot_df.apply(lambda x: x['channel'].split(' ')[0], axis='columns')
+plot_df.sort_values(by='location', inplace=True)
 with PdfPages(pdf_path) as pdf:
     t_mask = (plot_df['t'] >= plot_t_min) & (plot_df['t'] <= plot_t_max)
     for amp, group in plot_df.loc[t_mask, :].groupby('amp'):
@@ -143,7 +142,7 @@ with PdfPages(pdf_path) as pdf:
         g.set_ylabels('Normalized EMG (a.u.)')
         g.legend.set_title('EMG\nChannel')
         g.figure.suptitle(f'TENS amplitude: {amp} V', fontsize=1)
-        desired_figsize = (4.8, 1.8)
+        desired_figsize = (5.2, 1.5)
         g.figure.set_size_inches(desired_figsize)
         sns.move_legend(
             g, 'center right', bbox_to_anchor=(1, 0.5),
@@ -151,13 +150,12 @@ with PdfPages(pdf_path) as pdf:
         for legend_handle in g.legend.legendHandles:
             if isinstance(legend_handle, mpl.lines.Line2D):
                 legend_handle.set_lw(4 * legend_handle.get_lw())
+        g.figure.align_labels()
 
         g.figure.draw_without_rendering()
         legend_approx_width = g.legend.legendPatch.get_width() / g.figure.get_dpi()  # inches
         # new_right_margin = 1 - legend_approx_width / desired_figsize[0]
-        new_right_margin = .825  # hardcode to align to lfp figure
-        g.figure.subplots_adjust(right=new_right_margin)
+        new_right_margin = .85  # hardcode to align to emg figure
         g.tight_layout(pad=25e-2, rect=[0, 0, new_right_margin, 1])
-        g.figure.align_labels()
         pdf.savefig()
         plt.show()

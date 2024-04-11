@@ -33,8 +33,8 @@ emg_dict = {}
 envelope_dict = {}
 stim_info_dict = {}
 lfp_dict = {}
-show_reref_lfp = False
-zoom_in = True
+show_reref_lfp = True
+zoom_in = False
 zoom_suffix = '_zoom_in' if zoom_in else '_zoom_out'
 reref_suffix = '_reref' if show_reref_lfp else ''
 
@@ -125,7 +125,7 @@ zoom_in_lims = (-2, 30)
 zoom_out_lims = (-25, 325)
 
 emg_channel_order = [key for key in clinc_paper_emg_palette.keys()]
-
+trial_info = lfp_df.index.to_frame().reset_index(drop=True)
 with PdfPages(pdf_path) as pdf:
     for name, emg_group in emg_df.groupby(group_features):
         eid, freq, pw, amp = name
@@ -231,9 +231,9 @@ with PdfPages(pdf_path) as pdf:
                 theax.axvspan(zoom_in_lims[0], zoom_in_lims[1], color='g', alpha=0.1)
                 theax.set_xlim(zoom_out_lims)
         if zoom_in:
-            desired_figsize = (2.1, 3.6)
+            desired_figsize = (2.1, 3)
         else:
-            desired_figsize = (2.4, 3.6)
+            desired_figsize = (2.4, 3)
         fig.set_size_inches(desired_figsize)
         fig.align_labels()
         # fig.suptitle(f'E{eid} {amp} uA {int(freq)} Hz {pw} usec PW')

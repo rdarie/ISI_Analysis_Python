@@ -10,6 +10,7 @@ from isicpy.clinc_lookup_tables import clinc_sample_rate, emg_sample_rate
 from scipy import signal
 import numpy as np
 import os
+from sklearn.preprocessing import StandardScaler, scale
 
 clinc_sample_interval_sec = float(clinc_sample_rate ** -1)
 
@@ -44,8 +45,9 @@ filterOptsEmg = {
     }
 }
 filterCoeffsEmg = makeFilterCoeffsSOS(filterOptsEmg.copy(), emg_sample_rate)
+scale_emg = True
 
-folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202312080900-Phoenix")
+folder_path = Path("/users/rdarie/data/rdarie/Neural Recordings/raw/202401251300-Phoenix")
 routing_config_info = pd.read_json(folder_path / 'analysis_metadata/routing_config_info.json')
 routing_config_info['config_start_time'] = routing_config_info['config_start_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
 routing_config_info['config_end_time'] = routing_config_info['config_end_time'].apply(lambda x: pd.Timestamp(x, tz='GMT'))
@@ -79,6 +81,8 @@ for file_name in file_name_list:
     print(f'DSI offset = {clock_difference} + {dsi_fine_offset:.3f} = {dsi_total_offset.total_seconds():.3f}')
     emg_df = pd.read_parquet(folder_path / f"{emg_block_name}_emg.parquet")
     emg_df.index = emg_df.index + dsi_total_offset
+    if scale_emg:
+        emg_df.loc[:, :] = scale(emg_df)
 
     clinc_df = pd.read_parquet(folder_path / (file_name + '_clinc.parquet'))
     if apply_lfp_filters:
